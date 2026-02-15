@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jimschubert/otel-relay/internal/emitter"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -21,10 +22,15 @@ type Inspector struct {
 	verbose    bool
 	writer     io.Writer
 	prevWriter io.Writer
+	emitter    emitter.Emitter
 }
 
 func NewInspector(opts ...Option) *Inspector {
-	options := &Options{}
+	options := &Options{
+		writer:  io.Discard,
+		emitter: emitter.NewNoopEmitter(),
+	}
+
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -33,6 +39,7 @@ func NewInspector(opts ...Option) *Inspector {
 		verbose:    options.verbose,
 		writer:     options.writer,
 		prevWriter: io.Discard,
+		emitter:    options.emitter,
 	}
 }
 
@@ -61,7 +68,14 @@ func (i *Inspector) ToggleWriter() {
 }
 
 func (i *Inspector) canWrite() bool {
-	return i.writer != io.Discard
+	switch i.emitter.(type) {
+	case *emitter.NoopEmitter:
+		// no emitter, so only write if not disarded
+		return i.writer != io.Discard
+	default:
+		// we have an emitter, so doesn't matter if stdout is disabled
+		return true
+	}
 }
 
 //goland:noinspection DuplicatedCode
@@ -165,7 +179,16 @@ func (i *Inspector) InspectMetrics(req *collectormetrics.ExportMetricsServiceReq
 
 func (i *Inspector) write(content string) {
 	if i.writer != io.Discard {
-		_, _ = i.writer.Write([]byte(content))
+		_, err := i.writer.Write([]byte(content))
+		if err != nil {
+			log.Printf("Error logging data for inspection: %v", err)
+		}
+	}
+	if _, ok := i.emitter.(*emitter.NoopEmitter); !ok {
+		err := i.emitter.Emit(content)
+		if err != nil {
+			log.Printf("Error emitting data to unix socket: %v", err)
+		}
 	}
 }
 

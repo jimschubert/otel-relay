@@ -1,19 +1,45 @@
 package emitter
 
-import "sync"
+import (
+	"fmt"
+	"net"
+	"sync"
+)
 
-type Emitter struct {
-	socket string
-	once   sync.Once
+type Emitter interface {
+	Emit(message string) error
 }
 
-func NewEmitter(socket string) *Emitter {
-	return &Emitter{
-		socket: socket,
+type socketEmitter struct {
+	path string
+	conn net.Conn
+	mu   sync.Mutex
+	once sync.Once
+}
+
+func NewSocketEmitter(path string) Emitter {
+	return &socketEmitter{path: path}
+}
+
+func (e *socketEmitter) connect() error {
+	var err error
+	e.once.Do(func() {
+		e.conn, err = net.Dial("unix", e.path)
+		if err == nil {
+			// Send 'W' to identify as writer
+			_, err = e.conn.Write([]byte{'W'})
+		}
+	})
+	return err
+}
+
+func (e *socketEmitter) Emit(message string) error {
+	if err := e.connect(); err != nil {
+		return err
 	}
-}
 
-// TODO: see https://github.com/devlights/go-unix-domain-socket-example/blob/master/cmd/basic/server/main.go
-func (e *Emitter) Connect() error {
-	return nil
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	_, err := fmt.Fprintln(e.conn, message)
+	return err
 }

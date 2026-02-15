@@ -11,15 +11,18 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/jimschubert/otel-relay/inspector"
 	"github.com/jimschubert/otel-relay/internal"
+	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/socket"
 )
 
 var CLI struct {
 	Listen   string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
 	Upstream string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional)"`
 	Log      bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
-	// Socket   string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
-	// Emit     bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
-	Verbose bool `help:"Verbose output (show all attributes)"`
+	Socket   string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
+	Emit     bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
+	Verbose  bool   `help:"Verbose output (show all attributes)"`
+	Daemon   string `hidden:"" help:"Internal: run as daemon (socket path)"`
 }
 
 func main() {
@@ -28,6 +31,12 @@ func main() {
 		kong.Description("OTel Relay lets you view and forward signals"),
 		kong.UsageOnError(),
 	)
+
+	// Handle socket daemon mode
+	if CLI.Daemon != "" {
+		socket.RunDaemon(CLI.Daemon)
+		return
+	}
 
 	if err := run(); err != nil {
 		ctx.Errorf("Error: %v\n", err)
@@ -43,6 +52,11 @@ func run() error {
 	} else {
 		fmt.Printf("   Forwarding: disabled (inspection only)\n")
 	}
+	if CLI.Emit {
+		fmt.Printf("   Unix socket: %s\n", CLI.Socket)
+	} else {
+		fmt.Printf("   Unix socket: disabled\n")
+	}
 	fmt.Printf("\n")
 
 	var writer io.Writer
@@ -52,9 +66,20 @@ func run() error {
 		writer = io.Discard
 	}
 
+	var emit emitter.Emitter
+	if CLI.Emit {
+		if err := socket.EnsureServerRunning(CLI.Socket); err != nil {
+			return fmt.Errorf("failed to ensure socket server is running: %w", err)
+		}
+		emit = emitter.NewSocketEmitter(CLI.Socket)
+	} else {
+		emit = emitter.NewNoopEmitter()
+	}
+
 	inspect := inspector.NewInspector(
 		inspector.WithVerbose(CLI.Verbose),
 		inspector.WithWriter(writer),
+		inspector.WithEmitter(emit),
 	)
 	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspect)
 
