@@ -21,6 +21,13 @@ Why would you use this?
 3. You want to see if your instrumentation is working at all, but you're not ready to emit them _somewhere_ (maybe
    verbose logging in the collector doesn't give you what you want).
 
+What are some issues with just using otel-collector?
+
+1. OTel Collector supports SIGHUP for reload (see [PR](https://github.com/open-telemetry/opentelemetry-collector/pull/6000)), but this will reload _everything_. There's no way to reload just OTLP receivers.
+2. Any logging/debugging is mixed into other pipelines, which allows human error to misconfigure the collector on reload ([this blog](https://last9.io/blog/hot-reload-for-opentelemetry-collector/) has it right: "Always, and I mean ALWAYS, validate your config changes before reloading.").
+3. It's designed for multiple exporters, usually signal-specific or target an external or system-wide sink which is not ideal for ad hoc debugging. Many useful exporters are in [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/HEAD/exporter), adding complexity to the setup.
+4. Enabling ad hoc evaluation of a single service on a system with mulitiple running services could get tricky.
+
 ## Installation
 
 ```bash

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// TODO: review https://github.com/open-telemetry/opentelemetry-proto/blob/main/docs/specification.md#otlpgrpc-throttling
 // OTLPProxy is a gRPC server that intercepts OpenTelemetry Protocol data and forwards it to an upstream collector.
 type OTLPProxy struct {
 	listenAddr   string
