@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// TODO: review https://github.com/open-telemetry/opentelemetry-proto/blob/main/docs/specification.md#otlpgrpc-throttling
 // OTLPProxy is a gRPC server that intercepts OpenTelemetry Protocol data and forwards it to an upstream collector.
 type OTLPProxy struct {
 	listenAddr   string
@@ -77,13 +76,6 @@ func (p *OTLPProxy) Start() error {
 	return nil
 }
 
-func (p *OTLPProxy) Wait() error {
-	if p.serveErr == nil {
-		return nil
-	}
-	return <-p.serveErr
-}
-
 func (p *OTLPProxy) Stop() {
 	if p.server != nil {
 		p.server.GracefulStop()
@@ -91,6 +83,13 @@ func (p *OTLPProxy) Stop() {
 	if p.upstreamConn != nil {
 		_ = p.upstreamConn.Close()
 	}
+}
+
+func (p *OTLPProxy) Wait() error {
+	if p.serveErr == nil {
+		return nil
+	}
+	return <-p.serveErr
 }
 
 func (t *traceServiceImpl) Export(ctx context.Context, req *collectortrace.ExportTraceServiceRequest) (*collectortrace.ExportTraceServiceResponse, error) {

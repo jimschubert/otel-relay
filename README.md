@@ -80,6 +80,21 @@ The relay is configured via command-line flags:
 --verbose       Show all attributes
 ```
 
+## OS Signals
+
+The relay supports the following OS signals:
+- `SIGINT` and `SIGTERM`: Gracefully shut down the server.
+- `SIGUSR1`: Toggle verbose mode on/off, where verbose mode shows all attributes instead of a maximum of 5.
+
+To send a signal, use the `kill` command with the appropriate signal and the process ID of the relay.
+
+For example, to toggle verbose mode:
+
+```bash
+ps aux | grep otel-relay  # Find the process ID (PID) of the relay
+kill -SIGUSR1 <PID>
+```
+
 ## Example
 
 There's a working example in the `cmd/example/` directory. See [cmd/example/README.md](cmd/example/README.md).

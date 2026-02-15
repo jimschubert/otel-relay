@@ -2,6 +2,7 @@ package otel_relay
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -21,6 +22,15 @@ type Inspector struct {
 func NewInspector(verbose bool) *Inspector {
 	return &Inspector{
 		verbose: verbose,
+	}
+}
+
+func (i *Inspector) ToggleVerbosity() {
+	i.verbose = !i.verbose
+	if i.verbose {
+		log.Println("Verbose mode enabled: showing all attributes and events.")
+	} else {
+		log.Println("Verbose mode disabled: showing limited attributes and events.")
 	}
 }
 
