@@ -212,7 +212,7 @@ func (i *Inspector) printLogRecord(log *protologs.LogRecord) {
 
 func (i *Inspector) printAttr(prefix string, attrs []*commonpb.KeyValue) {
 	if !i.verbose && len(attrs) > 5 {
-		for idx := 0; idx < 5; idx++ {
+		for idx := range 5 {
 			kv := attrs[idx]
 			fmt.Printf("%s├─ %s: %s\n", prefix, kv.Key, i.attributeValueToString(kv.Value))
 		}
