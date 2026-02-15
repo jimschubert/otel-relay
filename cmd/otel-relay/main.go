@@ -19,7 +19,7 @@ var CLI struct {
 	Listen   string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
 	Upstream string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional)"`
 	Log      bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
-	Socket   string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
+	Socket   string `short:"s" default:"/var/run/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
 	Emit     bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
 	Verbose  bool   `help:"Verbose output (show all attributes)"`
 	Daemon   string `hidden:"" help:"Internal: run as daemon (socket path)"`
