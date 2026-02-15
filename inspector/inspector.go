@@ -49,6 +49,12 @@ func (i *Inspector) ToggleWriter() {
 		return
 	}
 	prev := i.writer
+	if prev == io.Discard {
+		log.Println("Logging: enabled.")
+	} else {
+		log.Println("Logging: disabled.")
+	}
+
 	i.writer = i.prevWriter
 	i.prevWriter = prev
 }
