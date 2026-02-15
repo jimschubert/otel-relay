@@ -39,7 +39,7 @@ Or build from source:
 ```bash
 git clone https://github.com/jimschubert/otel-relay
 cd otel-relay
-go build -o otel-relay cmd/main.go
+go build -o otel-relay cmd/otel-relay/main.go
 ```
 
 ## Usage
@@ -82,7 +82,7 @@ The relay is configured via command-line flags:
 
 ## Example
 
-There's a working example in the `example/` directory. See [example/README.md](example/README.md).
+There's a working example in the `cmd/example/` directory. See [cmd/example/README.md](cmd/example/README.md).
 
 ## Acknowledgements
 

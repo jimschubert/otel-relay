@@ -7,7 +7,7 @@ This example generates some OpenTelemetry traces to `otel-relay`.
 In one terminal (from repo root):
 
 ```bash
-go build -o otel-relay ./cmd
+go build -o otel-relay ./cmd/otel-relay/main.go
 ./otel-relay
 ```
 
@@ -18,7 +18,7 @@ In another terminal (in this directory):
 ```bash
 go run main.go
 ```
-This sends sample traces to the inspector.
+This sends sample traces to otel-relay for inspection.
 
 Then, check out the traces in the first terminal. You'll see something like this:
 

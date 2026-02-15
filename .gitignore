@@ -1,4 +1,4 @@
-otel-relay
+/otel-relay
 dist/
 
 ### JetBrains template
@@ -149,4 +149,3 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
-
