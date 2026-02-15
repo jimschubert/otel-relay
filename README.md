@@ -1,4 +1,4 @@
-# OTel Inspector
+# OTel Relay
 
 A language-agnostic transparent proxy for debugging/viewing OpenTelemetry signals.
 
@@ -24,15 +24,15 @@ Why would you use this?
 ## Installation
 
 ```bash
-go install github.com/jimschubert/otel-inspector/cmd@latest
+go install github.com/jimschubert/otel-relay/cmd@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/jimschubert/otel-inspector
-cd otel-inspector
-go build -o otel-inspector cmd/main.go
+git clone https://github.com/jimschubert/otel-relay
+cd otel-relay
+go build -o otel-relay cmd/main.go
 ```
 
 ## Usage
@@ -40,7 +40,7 @@ go build -o otel-inspector cmd/main.go
 Start the proxy server:
 
 ```bash
-otel-inspector
+otel-relay
 ```
 
 Point your app to `localhost:14317` (note the port starts with a `1`). You'll see telemetry data in real-time.
@@ -48,24 +48,24 @@ Point your app to `localhost:14317` (note the port starts with a `1`). You'll se
 To forward to an actual collector (note the port _does not_ start with a `1` here):
 
 ```bash
-otel-inspector --upstream localhost:4317
+otel-relay --upstream localhost:4317
 ```
 
 See all attributes:
 
 ```bash
-otel-inspector --verbose
+otel-relay --verbose
 ```
 
 Change the listening port:
 
 ```bash
-otel-inspector --listen :9999
+otel-relay --listen :9999
 ```
 
 ## Configuration
 
-The inspector is configured via command-line flags:
+The relay is configured via command-line flags:
 
 ```
 --listen, -l    Address to listen on (default :14317)

@@ -1,4 +1,4 @@
-package otel_inspector
+package otel_relay
 
 import (
 	"fmt"

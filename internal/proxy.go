@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	inspector "github.com/jimschubert/otel-inspector"
+	relay "github.com/jimschubert/otel-relay"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -17,7 +17,7 @@ import (
 type OTLPProxy struct {
 	listenAddr   string
 	upstreamAddr string
-	inspector    *inspector.Inspector
+	inspector    *relay.Inspector
 	server       *grpc.Server
 	upstreamConn *grpc.ClientConn
 
@@ -39,7 +39,7 @@ type logsServiceImpl struct {
 	collectorlogs.UnimplementedLogsServiceServer
 }
 
-func NewOTLPProxy(listenAddr, upstreamAddr string, insp *inspector.Inspector) *OTLPProxy {
+func NewOTLPProxy(listenAddr, upstreamAddr string, insp *relay.Inspector) *OTLPProxy {
 	return &OTLPProxy{
 		listenAddr:   listenAddr,
 		upstreamAddr: upstreamAddr,

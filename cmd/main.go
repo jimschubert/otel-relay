@@ -7,8 +7,8 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kong"
-	inspector "github.com/jimschubert/otel-inspector"
-	"github.com/jimschubert/otel-inspector/internal"
+	relay "github.com/jimschubert/otel-relay"
+	"github.com/jimschubert/otel-relay/internal"
 )
 
 var CLI struct {
@@ -19,8 +19,8 @@ var CLI struct {
 
 func main() {
 	ctx := kong.Parse(&CLI,
-		kong.Name("otel-inspector"),
-		kong.Description("OTel Inspector lets you view and forward signals"),
+		kong.Name("otel-relay"),
+		kong.Description("OTel Relay lets you view and forward signals"),
 		kong.UsageOnError(),
 	)
 
@@ -31,7 +31,7 @@ func main() {
 }
 
 func run() error {
-	fmt.Printf("OTel Inspector starting...\n")
+	fmt.Printf("OTel Relay starting...\n")
 	fmt.Printf("   Listening: %s\n", CLI.Listen)
 	if CLI.Upstream != "" {
 		fmt.Printf("   Forwarding to: %s\n", CLI.Upstream)
@@ -40,8 +40,8 @@ func run() error {
 	}
 	fmt.Printf("\n")
 
-	insp := inspector.NewInspector(CLI.Verbose)
-	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, insp)
+	inspector := relay.NewInspector(CLI.Verbose)
+	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspector)
 
 	if err := proxy.Start(); err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)

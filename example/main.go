@@ -23,7 +23,7 @@ func main() {
 	traceOpts = append(traceOpts, otlptracegrpc.WithInsecure())
 
 	if _, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT"); !ok {
-		// Note that 14317 is the default inspector port (and is configurable when running the inspector)
+		// Note that 14317 is the default relay port (and is configurable when running otel-relay)
 		traceOpts = append(traceOpts, otlptracegrpc.WithEndpoint("localhost:14317"))
 	}
 
@@ -34,7 +34,7 @@ func main() {
 
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceName("otel-inspector-example"),
+			semconv.ServiceName("otel-relay-example"),
 			semconv.ServiceVersion("1.0.0"),
 			attribute.String("environment", "dev"),
 		),
@@ -58,7 +58,7 @@ func main() {
 	tracer := otel.Tracer("example-tracer")
 
 	fmt.Println("Generating example traces...")
-	fmt.Println("Check your OTel Inspector output!")
+	fmt.Println("Check your OTel Relay output!")
 	fmt.Println()
 
 	for i := 0; i < 300; i++ {
@@ -68,7 +68,7 @@ func main() {
 
 	// Wait for any batching
 	time.Sleep(2 * time.Second)
-	fmt.Println("\n✅ Done! Check the inspector output.")
+	fmt.Println("\n✅ Done! Check the relay output.")
 }
 
 func generateTrace(ctx context.Context, tracer trace.Tracer, iteration int) {
@@ -112,7 +112,7 @@ func generateTrace(ctx context.Context, tracer trace.Tracer, iteration int) {
 			attribute.String("http.method", "GET"),
 			attribute.String("http.url", "https://api.example.com/data"),
 			attribute.Int("http.status_code", 200),
-			attribute.String("http.user_agent", "otel-inspector-example/1.0"),
+			attribute.String("http.user_agent", "otel-relay-example/1.0"),
 		))
 
 	time.Sleep(10 * time.Millisecond)

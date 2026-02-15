@@ -1,14 +1,14 @@
 # Example: generate traces
 
-This example generates some OpenTelemetry traces to `otel-inspector`.
+This example generates some OpenTelemetry traces to `otel-relay`.
 
 ## Run it…
 
 In one terminal (from repo root):
 
 ```bash
-go build -o otel-inspector ./cmd
-./otel-inspector
+go build -o otel-relay ./cmd
+./otel-relay
 ```
 
 This listens on `localhost:14317` by default and prints formatted traces to stdout.
@@ -26,7 +26,7 @@ Then, check out the traces in the first terminal. You'll see something like this
 📊 TRACE
 ├─ Resource:
 │  ├─ environment: dev
-│  ├─ service.name: otel-inspector-example
+│  ├─ service.name: otel-relay-example
 │  └─ service.version: 1.0.0
 ├─ Scope: example-tracer
 │
@@ -47,11 +47,11 @@ Then, check out the traces in the first terminal. You'll see something like this
 
 ## Note on ports
 
-The `otel-inspector` port defaults to 14317. This differs from a "real" collector's `4317` to avoid conflicts.
-You can start the inspector on a different port:
+The `otel-relay` port defaults to 14317. This differs from a "real" collector's `4317` to avoid conflicts.
+You can start the relay on a different port:
 
 ```bash
-./otel-inspector --listen :9999
+./otel-relay --listen :9999
 ```
 
 But this example doesn't have flags/switches, so you have to use the official OTel environment variable at startup to change the port:

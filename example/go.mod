@@ -1,4 +1,4 @@
-module github.com/jimschubert/otel-inspector/example
+module github.com/jimschubert/otel-relay/example
 
 go 1.26
 
