@@ -3,7 +3,7 @@ module github.com/jimschubert/otel-relay
 go 1.26
 
 require (
-	github.com/alecthomas/kong v1.7.0
+	github.com/alecthomas/kong v1.14.0
 	go.opentelemetry.io/proto/otlp v1.9.0
 	google.golang.org/grpc v1.79.1
 )
