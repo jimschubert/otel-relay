@@ -1,7 +1,8 @@
-package otel_relay
+package inspector
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"time"
@@ -16,12 +17,21 @@ import (
 )
 
 type Inspector struct {
-	verbose bool
+	verbose    bool
+	writer     io.Writer
+	prevWriter io.Writer
 }
 
-func NewInspector(verbose bool) *Inspector {
+func NewInspector(opts ...Option) *Inspector {
+	options := &Options{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	return &Inspector{
-		verbose: verbose,
+		verbose:    options.verbose,
+		writer:     options.writer,
+		prevWriter: io.Discard,
 	}
 }
 
@@ -34,30 +44,39 @@ func (i *Inspector) ToggleVerbosity() {
 	}
 }
 
+func (i *Inspector) ToggleWriter() {
+	if i.writer == io.Discard && i.prevWriter == io.Discard {
+		return
+	}
+	prev := i.writer
+	i.writer = i.prevWriter
+	i.prevWriter = prev
+}
+
 //goland:noinspection DuplicatedCode
 func (i *Inspector) InspectTraces(req *collectortrace.ExportTraceServiceRequest) {
 	for _, resourceSpan := range req.ResourceSpans {
 		resource := resourceSpan.Resource
 
-		fmt.Printf("\n📊 TRACE\n")
-		fmt.Printf("├─ Resource:\n")
+		_, _ = fmt.Fprintf(i.writer, "\n📊 TRACE\n")
+		_, _ = fmt.Fprintf(i.writer, "├─ Resource:\n")
 		i.printAttr("│  ", resource.Attributes)
 
 		for _, scopeSpan := range resourceSpan.ScopeSpans {
 			scope := scopeSpan.Scope
 			if scope != nil {
-				fmt.Printf("├─ Scope: %s", scope.Name)
+				_, _ = fmt.Fprintf(i.writer, "├─ Scope: %s", scope.Name)
 				if scope.Version != "" {
-					fmt.Printf(" (v%s)", scope.Version)
+					_, _ = fmt.Fprintf(i.writer, " (v%s)", scope.Version)
 				}
-				fmt.Printf("\n")
+				_, _ = fmt.Fprintf(i.writer, "\n")
 			}
 
 			for _, span := range scopeSpan.Spans {
 				i.printSpan(span)
 			}
 		}
-		fmt.Printf("└─────────────────────────────────────\n")
+		_, _ = fmt.Fprintf(i.writer, "└─────────────────────────────────────\n")
 	}
 }
 
@@ -66,25 +85,25 @@ func (i *Inspector) InspectLogs(req *collectorlogs.ExportLogsServiceRequest) {
 	for _, resourceLog := range req.ResourceLogs {
 		resource := resourceLog.Resource
 
-		fmt.Printf("\n📝 LOG\n")
-		fmt.Printf("├─ Resource:\n")
+		_, _ = fmt.Fprintf(i.writer, "\n📝 LOG\n")
+		_, _ = fmt.Fprintf(i.writer, "├─ Resource:\n")
 		i.printAttr("│  ", resource.Attributes)
 
 		for _, scopeLog := range resourceLog.ScopeLogs {
 			scope := scopeLog.Scope
 			if scope != nil {
-				fmt.Printf("├─ Scope: %s", scope.Name)
+				_, _ = fmt.Fprintf(i.writer, "├─ Scope: %s", scope.Name)
 				if scope.Version != "" {
-					fmt.Printf(" (v%s)", scope.Version)
+					_, _ = fmt.Fprintf(i.writer, " (v%s)", scope.Version)
 				}
-				fmt.Printf("\n")
+				_, _ = fmt.Fprintf(i.writer, "\n")
 			}
 
 			for _, logRecord := range scopeLog.LogRecords {
 				i.printLogRecord(logRecord)
 			}
 		}
-		fmt.Printf("└─────────────────────────────────────\n")
+		_, _ = fmt.Fprintf(i.writer, "└─────────────────────────────────────\n")
 	}
 }
 
@@ -93,119 +112,119 @@ func (i *Inspector) InspectMetrics(req *collectormetrics.ExportMetricsServiceReq
 	for _, resourceMetric := range req.ResourceMetrics {
 		resource := resourceMetric.Resource
 
-		fmt.Printf("\n📈 METRIC\n")
-		fmt.Printf("├─ Resource:\n")
+		_, _ = fmt.Fprintf(i.writer, "\n📈 METRIC\n")
+		_, _ = fmt.Fprintf(i.writer, "├─ Resource:\n")
 		i.printAttr("│  ", resource.Attributes)
 
 		for _, scopeMetric := range resourceMetric.ScopeMetrics {
 			scope := scopeMetric.Scope
 			if scope != nil {
-				fmt.Printf("├─ Scope: %s", scope.Name)
+				_, _ = fmt.Fprintf(i.writer, "├─ Scope: %s", scope.Name)
 				if scope.Version != "" {
-					fmt.Printf(" (v%s)", scope.Version)
+					_, _ = fmt.Fprintf(i.writer, " (v%s)", scope.Version)
 				}
-				fmt.Printf("\n")
+				_, _ = fmt.Fprintf(i.writer, "\n")
 			}
 
 			for _, metric := range scopeMetric.Metrics {
 				i.printMetric(metric)
 			}
 		}
-		fmt.Printf("└─────────────────────────────────────\n")
+		_, _ = fmt.Fprintf(i.writer, "└─────────────────────────────────────\n")
 	}
 }
 
 func (i *Inspector) printSpan(span *prototrace.Span) {
-	fmt.Printf("│\n")
-	fmt.Printf("├─ 🔗 Span: %s\n", span.Name)
-	fmt.Printf("│  ├─ TraceID: %x\n", span.TraceId)
-	fmt.Printf("│  ├─ SpanID: %x\n", span.SpanId)
+	_, _ = fmt.Fprintf(i.writer, "│\n")
+	_, _ = fmt.Fprintf(i.writer, "├─ 🔗 Span: %s\n", span.Name)
+	_, _ = fmt.Fprintf(i.writer, "│  ├─ TraceID: %x\n", span.TraceId)
+	_, _ = fmt.Fprintf(i.writer, "│  ├─ SpanID: %x\n", span.SpanId)
 	if len(span.ParentSpanId) > 0 {
-		fmt.Printf("│  ├─ ParentSpanID: %x\n", span.ParentSpanId)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ ParentSpanID: %x\n", span.ParentSpanId)
 	}
-	fmt.Printf("│  ├─ Kind: %s\n", span.Kind.String())
+	_, _ = fmt.Fprintf(i.writer, "│  ├─ Kind: %s\n", span.Kind.String())
 
 	startTime := time.Unix(0, int64(span.StartTimeUnixNano))
 	endTime := time.Unix(0, int64(span.EndTimeUnixNano))
 	duration := endTime.Sub(startTime)
-	fmt.Printf("│  ├─ Duration: %v\n", duration)
+	_, _ = fmt.Fprintf(i.writer, "│  ├─ Duration: %v\n", duration)
 
 	if span.Status != nil {
-		fmt.Printf("│  ├─ Status: %s", span.Status.Code.String())
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Status: %s", span.Status.Code.String())
 		if span.Status.Message != "" {
-			fmt.Printf(" - %s", span.Status.Message)
+			_, _ = fmt.Fprintf(i.writer, " - %s", span.Status.Message)
 		}
-		fmt.Printf("\n")
+		_, _ = fmt.Fprintf(i.writer, "\n")
 	}
 
 	if len(span.Attributes) > 0 {
-		fmt.Printf("│  ├─ Attributes:\n")
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Attributes:\n")
 		i.printAttr("│  │  ", span.Attributes)
 	}
 
 	if len(span.Events) > 0 {
-		fmt.Printf("│  ├─ Events: %d\n", len(span.Events))
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Events: %d\n", len(span.Events))
 		if i.verbose {
 			for idx, event := range span.Events {
-				fmt.Printf("│  │  ├─ [%d] %s\n", idx, event.Name)
+				_, _ = fmt.Fprintf(i.writer, "│  │  ├─ [%d] %s\n", idx, event.Name)
 			}
 		}
 	}
 
 	if len(span.Links) > 0 {
-		fmt.Printf("│  └─ Links: %d\n", len(span.Links))
+		_, _ = fmt.Fprintf(i.writer, "│  └─ Links: %d\n", len(span.Links))
 	}
 }
 
 func (i *Inspector) printMetric(metric *protometrics.Metric) {
-	fmt.Printf("│\n")
-	fmt.Printf("├─ 📊 Metric: %s\n", metric.Name)
+	_, _ = fmt.Fprintf(i.writer, "│\n")
+	_, _ = fmt.Fprintf(i.writer, "├─ 📊 Metric: %s\n", metric.Name)
 	if metric.Description != "" {
-		fmt.Printf("│  ├─ Description: %s\n", metric.Description)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Description: %s\n", metric.Description)
 	}
 	if metric.Unit != "" {
-		fmt.Printf("│  ├─ Unit: %s\n", metric.Unit)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Unit: %s\n", metric.Unit)
 	}
 
 	switch data := metric.Data.(type) {
 	case *protometrics.Metric_Gauge:
-		fmt.Printf("│  ├─ Type: Gauge\n")
-		fmt.Printf("│  └─ Data points: %d\n", len(data.Gauge.DataPoints))
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Type: Gauge\n")
+		_, _ = fmt.Fprintf(i.writer, "│  └─ Data points: %d\n", len(data.Gauge.DataPoints))
 	case *protometrics.Metric_Sum:
-		fmt.Printf("│  ├─ Type: Sum\n")
-		fmt.Printf("│  ├─ Aggregation: %s\n", data.Sum.AggregationTemporality.String())
-		fmt.Printf("│  └─ Data points: %d\n", len(data.Sum.DataPoints))
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Type: Sum\n")
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Aggregation: %s\n", data.Sum.AggregationTemporality.String())
+		_, _ = fmt.Fprintf(i.writer, "│  └─ Data points: %d\n", len(data.Sum.DataPoints))
 	case *protometrics.Metric_Histogram:
-		fmt.Printf("│  ├─ Type: Histogram\n")
-		fmt.Printf("│  └─ Data points: %d\n", len(data.Histogram.DataPoints))
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Type: Histogram\n")
+		_, _ = fmt.Fprintf(i.writer, "│  └─ Data points: %d\n", len(data.Histogram.DataPoints))
 	case *protometrics.Metric_Summary:
-		fmt.Printf("│  ├─ Type: Summary\n")
-		fmt.Printf("│  └─ Data points: %d\n", len(data.Summary.DataPoints))
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Type: Summary\n")
+		_, _ = fmt.Fprintf(i.writer, "│  └─ Data points: %d\n", len(data.Summary.DataPoints))
 	}
 }
 
 func (i *Inspector) printLogRecord(log *protologs.LogRecord) {
-	fmt.Printf("│\n")
-	fmt.Printf("├─ 📄 Log\n")
-	fmt.Printf("│  ├─ Severity: %s\n", log.SeverityText)
+	_, _ = fmt.Fprintf(i.writer, "│\n")
+	_, _ = fmt.Fprintf(i.writer, "├─ 📄 Log\n")
+	_, _ = fmt.Fprintf(i.writer, "│  ├─ Severity: %s\n", log.SeverityText)
 
 	if log.Body != nil {
 		body := i.attributeValueToString(log.Body)
 		if !i.verbose && len(body) > 100 {
 			body = body[:97] + "..."
 		}
-		fmt.Printf("│  ├─ Body: %s\n", body)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Body: %s\n", body)
 	}
 
 	if len(log.TraceId) > 0 {
-		fmt.Printf("│  ├─ TraceID: %x\n", log.TraceId)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ TraceID: %x\n", log.TraceId)
 	}
 	if len(log.SpanId) > 0 {
-		fmt.Printf("│  ├─ SpanID: %x\n", log.SpanId)
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ SpanID: %x\n", log.SpanId)
 	}
 
 	if len(log.Attributes) > 0 && i.verbose {
-		fmt.Printf("│  ├─ Attributes:\n")
+		_, _ = fmt.Fprintf(i.writer, "│  ├─ Attributes:\n")
 		i.printAttr("│  │  ", log.Attributes)
 	}
 }
@@ -214,16 +233,16 @@ func (i *Inspector) printAttr(prefix string, attrs []*commonpb.KeyValue) {
 	if !i.verbose && len(attrs) > 5 {
 		for idx := range 5 {
 			kv := attrs[idx]
-			fmt.Printf("%s├─ %s: %s\n", prefix, kv.Key, i.attributeValueToString(kv.Value))
+			_, _ = fmt.Fprintf(i.writer, "%s├─ %s: %s\n", prefix, kv.Key, i.attributeValueToString(kv.Value))
 		}
-		fmt.Printf("%s└─ ... (%d more attributes)\n", prefix, len(attrs)-5)
+		_, _ = fmt.Fprintf(i.writer, "%s└─ ... (%d more attributes)\n", prefix, len(attrs)-5)
 	} else {
 		for idx, kv := range attrs {
 			connector := "├─"
 			if idx == len(attrs)-1 {
 				connector = "└─"
 			}
-			fmt.Printf("%s%s %s: %s\n", prefix, connector, kv.Key, i.attributeValueToString(kv.Value))
+			_, _ = fmt.Fprintf(i.writer, "%s%s %s: %s\n", prefix, connector, kv.Key, i.attributeValueToString(kv.Value))
 		}
 	}
 }

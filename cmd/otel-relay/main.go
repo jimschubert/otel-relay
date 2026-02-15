@@ -2,20 +2,24 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/alecthomas/kong"
-	relay "github.com/jimschubert/otel-relay"
+	"github.com/jimschubert/otel-relay/inspector"
 	"github.com/jimschubert/otel-relay/internal"
 )
 
 var CLI struct {
 	Listen   string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
-	Upstream string `short:"u" optional:"" help:"Upstream OTLP collector address (optional)"`
-	Verbose  bool   `help:"Verbose output (show all attributes)"`
+	Upstream string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional)"`
+	Log      bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
+	// Socket   string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
+	// Emit     bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
+	Verbose bool `help:"Verbose output (show all attributes)"`
 }
 
 func main() {
@@ -41,8 +45,18 @@ func run() error {
 	}
 	fmt.Printf("\n")
 
-	inspector := relay.NewInspector(CLI.Verbose)
-	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspector)
+	var writer io.Writer
+	if CLI.Log {
+		writer = os.Stdout
+	} else {
+		writer = io.Discard
+	}
+
+	inspect := inspector.NewInspector(
+		inspector.WithVerbose(CLI.Verbose),
+		inspector.WithWriter(writer),
+	)
+	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspect)
 
 	if err := proxy.Start(); err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
@@ -54,7 +68,7 @@ func run() error {
 	}()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
 
 	defer signal.Stop(sigChan)
 
@@ -77,7 +91,12 @@ func run() error {
 
 			// SIGUSR1: toggle verbosity
 			if sig == syscall.SIGUSR1 {
-				inspector.ToggleVerbosity()
+				inspect.ToggleVerbosity()
+			}
+
+			// SIGUSR2: toggle log's writer (stdout vs discard)
+			if sig == syscall.SIGUSR2 {
+				inspect.ToggleWriter()
 			}
 
 		case err := <-waitErr:

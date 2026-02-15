@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	relay "github.com/jimschubert/otel-relay"
+	relay "github.com/jimschubert/otel-relay/inspector"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
