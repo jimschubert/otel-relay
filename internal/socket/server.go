@@ -184,7 +184,7 @@ func EnsureServerRunning(path string) error {
 	go cmd.Wait()
 
 	// Wait for socket to be ready
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		time.Sleep(10 * time.Millisecond)
 		conn, err := net.DialTimeout("unix", path, 100*time.Millisecond)
 		if err == nil {
