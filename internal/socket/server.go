@@ -29,7 +29,7 @@ type Daemon struct {
 func NewDaemon(path string) *Daemon {
 	return &Daemon{
 		path:      path,
-		broadcast: make(chan []byte, 100),
+		broadcast: make(chan []byte, 1000),
 		done:      make(chan struct{}),
 	}
 }
@@ -114,13 +114,15 @@ func (d *Daemon) handleWriter(conn net.Conn) {
 		case <-d.done:
 			return
 		default:
-			d.mu.Lock()
-			// Drop message if broadcast buffer is full. but debounce to avoid spamming.
-			if time.Since(d.lastDroppedMessage) > (10 * time.Second) {
-				log.Printf("Broadcast buffer full, dropping messages from writer; will log this message at most once every 10 seconds")
+			if len(msg) > 1 {
+				d.mu.Lock()
+				// Drop message if broadcast buffer is full. but debounce to avoid spamming.
+				if time.Since(d.lastDroppedMessage) > (10 * time.Second) {
+					log.Printf("Broadcast buffer full, dropping messages from writer; will log this message at most once every 10 seconds, dropping %s", msg)
+				}
 				d.lastDroppedMessage = time.Now()
+				d.mu.Unlock()
 			}
-			d.mu.Unlock()
 		}
 	}
 
@@ -133,6 +135,16 @@ func (d *Daemon) handleReader(conn net.Conn) {
 	d.mu.Lock()
 	d.readers = append(d.readers, conn)
 	d.mu.Unlock()
+
+	// Keep-live, detect when client closes to avoid resource leak
+	buf := make([]byte, 1)
+	for {
+		_, err := conn.Read(buf)
+		if err != nil {
+			d.removeReader(conn)
+			return
+		}
+	}
 }
 
 func (d *Daemon) broadcastLoop() {
