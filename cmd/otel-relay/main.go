@@ -6,23 +6,26 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 
 	"github.com/alecthomas/kong"
 	"github.com/jimschubert/otel-relay/inspector"
-	"github.com/jimschubert/otel-relay/internal"
 	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/proxy"
 	"github.com/jimschubert/otel-relay/internal/socket"
 )
 
 var CLI struct {
-	Listen   string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
-	Upstream string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional)"`
-	Log      bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
-	Socket   string `short:"s" default:"/var/run/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
-	Emit     bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
-	Verbose  bool   `help:"Verbose output (show all attributes)"`
-	Daemon   string `hidden:"" help:"Internal: run as daemon (socket path)"`
+	Listen       string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
+	Upstream     string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
+	ListenHttp   string `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
+	UpstreamHttp string `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
+	Log          bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
+	Socket       string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
+	Emit         bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
+	Verbose      bool   `help:"Verbose output (show all attributes)"`
+	Daemon       string `hidden:"" help:"Internal: run as daemon (socket path)"`
 }
 
 func main() {
@@ -32,7 +35,6 @@ func main() {
 		kong.UsageOnError(),
 	)
 
-	// Handle socket daemon mode
 	if CLI.Daemon != "" {
 		socket.RunDaemon(CLI.Daemon)
 		return
@@ -46,7 +48,7 @@ func main() {
 
 func run() error {
 	fmt.Printf("OTel Relay starting...\n")
-	fmt.Printf("   Listening: %s\n", CLI.Listen)
+	fmt.Printf("   Listening (gRPC): %s\n", CLI.Listen)
 	if CLI.Upstream != "" {
 		fmt.Printf("   Forwarding to: %s\n", CLI.Upstream)
 	} else {
@@ -81,16 +83,32 @@ func run() error {
 		inspector.WithWriter(writer),
 		inspector.WithEmitter(emit),
 	)
-	proxy := internal.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspect)
 
-	if err := proxy.Start(); err != nil {
-		return fmt.Errorf("failed to start proxy: %w", err)
+	proxies := make([]proxy.Proxy, 0)
+	if CLI.ListenHttp != "" {
+		if CLI.UpstreamHttp == "" {
+			log.Printf("Warning: --listen-http/-L provided without --upstream-http/-U, signals will not be forwarded to an upstream HTTP proxy")
+		}
+		proxies = append(proxies, proxy.NewHTTPProxy(CLI.ListenHttp, CLI.UpstreamHttp, inspect))
 	}
 
-	waitErr := make(chan error, 1)
-	go func() {
-		waitErr <- proxy.Wait()
-	}()
+	if CLI.Listen != "" {
+		if CLI.Upstream == "" {
+			log.Printf("Warning: --listen/-l provided without --upstream/-u, signals will not be forwarded to an upstream gRPC proxy")
+		}
+		proxies = append(proxies, proxy.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspect))
+	}
+
+	waitErr := make(chan error, len(proxies))
+	for _, p := range proxies {
+		if err := p.Start(); err != nil {
+			return fmt.Errorf("failed to start proxy: %w", err)
+		}
+		current := p
+		go func(proxy proxy.Proxy) {
+			waitErr <- proxy.Err()
+		}(current)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -106,7 +124,9 @@ func run() error {
 			if sig == os.Interrupt || sig == syscall.SIGTERM {
 				fmt.Println() // so e.g. ^C is on its own line
 				log.Printf("Shutting down (%s)...\n", sig)
-				proxy.Stop()
+
+				stopProxies(proxies)
+
 				err := <-waitErr
 				if err != nil {
 					return fmt.Errorf("server stopped with error: %w", err)
@@ -126,9 +146,21 @@ func run() error {
 
 		case err := <-waitErr:
 			if err != nil {
-				return fmt.Errorf("gRPC server error: %w", err)
+				stopProxies(proxies)
+				return fmt.Errorf("proxy server error: %w", err)
 			}
 			return nil
 		}
+	}
+}
+
+func stopProxies(proxies []proxy.Proxy) {
+	for i := range slices.All(proxies) {
+		p := proxies[i]
+		log.Printf("Stopping %s proxy...", p.Protocol())
+		if err := p.Stop(); err != nil {
+			log.Printf("Error stopping %s proxy: %v", p.Protocol(), err)
+		}
+		log.Printf("Proxy (%s) stopped.", p.Protocol())
 	}
 }

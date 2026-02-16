@@ -170,17 +170,18 @@ func (d *Daemon) removeReader(conn net.Conn) {
 func EnsureServerRunning(path string) error {
 	conn, err := net.DialTimeout("unix", path, 100*time.Millisecond)
 	if err == nil {
+		// Socket server is already running
 		_ = conn.Close()
 		return nil
 	}
 
-	// Start server in background
 	cmd := exec.Command(os.Args[0], "--daemon", path)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start socket server: %w", err)
 	}
+
 	go cmd.Wait()
 
 	// Wait for socket to be ready
@@ -188,8 +189,15 @@ func EnsureServerRunning(path string) error {
 		time.Sleep(10 * time.Millisecond)
 		conn, err := net.DialTimeout("unix", path, 100*time.Millisecond)
 		if err == nil {
+			// Socket server is already running
 			_ = conn.Close()
 			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, syscall.ENOENT) {
+			log.Printf("Error checking socket server: %v", err)
+		}
+		if cmd.Err != nil {
+			return fmt.Errorf("socket server process exited with error: %w", cmd.Err)
 		}
 	}
 
@@ -226,3 +234,4 @@ func RunDaemon(path string) {
 // https://github.com/james-barrow/golang-ipc/blob/cd515d151eb51b599c5a86c80ba51068e9543657/server_all.go#L60
 // https://github.com/ccache/ccache-storage-http-go/blob/3161103ab0e3d8bce44c42052508d6de92ed1bec/ipc_server.go
 // https://github.com/c2FmZQ/tlsproxy/blob/c2dddf848fef0dca28f917fe1d7ddf4fce16d9ed/proxy/proxy.go
+// https://github.com/devlights/go-unix-domain-socket-example/tree/master

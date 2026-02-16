@@ -4,6 +4,7 @@ go 1.26
 
 require (
 	github.com/alecthomas/kong v1.14.0
+	github.com/golang/protobuf v1.5.4
 	go.opentelemetry.io/proto/otlp v1.9.0
 	google.golang.org/grpc v1.79.1
 )

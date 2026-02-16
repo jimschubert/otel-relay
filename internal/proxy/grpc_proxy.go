@@ -1,4 +1,4 @@
-package internal
+package proxy
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// OTLPProxy is a gRPC server that intercepts OpenTelemetry Protocol data and forwards it to an upstream collector.
 type OTLPProxy struct {
 	listenAddr   string
 	upstreamAddr string
@@ -27,16 +26,19 @@ type OTLPProxy struct {
 type traceServiceImpl struct {
 	*OTLPProxy
 	collectortrace.UnimplementedTraceServiceServer
+	client collectortrace.TraceServiceClient
 }
 
 type metricsServiceImpl struct {
 	*OTLPProxy
 	collectormetrics.UnimplementedMetricsServiceServer
+	client collectormetrics.MetricsServiceClient
 }
 
 type logsServiceImpl struct {
 	*OTLPProxy
 	collectorlogs.UnimplementedLogsServiceServer
+	client collectorlogs.LogsServiceClient
 }
 
 func NewOTLPProxy(listenAddr, upstreamAddr string, insp *relay.Inspector) *OTLPProxy {
@@ -57,7 +59,6 @@ func (p *OTLPProxy) Start() error {
 		p.upstreamConn = conn
 	}
 
-	// TODO: support both gRPC and HTTP
 	listener, err := net.Listen("tcp", p.listenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
@@ -71,21 +72,29 @@ func (p *OTLPProxy) Start() error {
 
 	go func() {
 		p.serveErr <- p.server.Serve(listener)
+		close(p.serveErr)
 	}()
 
 	return nil
 }
 
-func (p *OTLPProxy) Stop() {
+func (p *OTLPProxy) Protocol() string {
+	return "grpc"
+}
+
+func (p *OTLPProxy) Stop() error {
+	var err error
 	if p.server != nil {
 		p.server.GracefulStop()
 	}
 	if p.upstreamConn != nil {
-		_ = p.upstreamConn.Close()
+		err = p.upstreamConn.Close()
 	}
+
+	return err
 }
 
-func (p *OTLPProxy) Wait() error {
+func (p *OTLPProxy) Err() error {
 	if p.serveErr == nil {
 		return nil
 	}
@@ -94,27 +103,33 @@ func (p *OTLPProxy) Wait() error {
 
 func (t *traceServiceImpl) Export(ctx context.Context, req *collectortrace.ExportTraceServiceRequest) (*collectortrace.ExportTraceServiceResponse, error) {
 	t.inspector.InspectTraces(req)
-	if t.upstreamConn != nil {
-		client := collectortrace.NewTraceServiceClient(t.upstreamConn)
-		return client.Export(ctx, req)
+	if t.upstreamConn != nil && t.client == nil {
+		t.client = collectortrace.NewTraceServiceClient(t.upstreamConn)
+	}
+	if t.client != nil {
+		return t.client.Export(ctx, req)
 	}
 	return &collectortrace.ExportTraceServiceResponse{}, nil
 }
 
 func (m *metricsServiceImpl) Export(ctx context.Context, req *collectormetrics.ExportMetricsServiceRequest) (*collectormetrics.ExportMetricsServiceResponse, error) {
 	m.inspector.InspectMetrics(req)
-	if m.upstreamConn != nil {
-		client := collectormetrics.NewMetricsServiceClient(m.upstreamConn)
-		return client.Export(ctx, req)
+	if m.upstreamConn != nil && m.client == nil {
+		m.client = collectormetrics.NewMetricsServiceClient(m.upstreamConn)
+	}
+	if m.client != nil {
+		return m.client.Export(ctx, req)
 	}
 	return &collectormetrics.ExportMetricsServiceResponse{}, nil
 }
 
 func (l *logsServiceImpl) Export(ctx context.Context, req *collectorlogs.ExportLogsServiceRequest) (*collectorlogs.ExportLogsServiceResponse, error) {
 	l.inspector.InspectLogs(req)
-	if l.upstreamConn != nil {
-		client := collectorlogs.NewLogsServiceClient(l.upstreamConn)
-		return client.Export(ctx, req)
+	if l.upstreamConn != nil && l.client == nil {
+		l.client = collectorlogs.NewLogsServiceClient(l.upstreamConn)
+	}
+	if l.client != nil {
+		return l.client.Export(ctx, req)
 	}
 	return &collectorlogs.ExportLogsServiceResponse{}, nil
 }

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/jimschubert/otel-relay/internal/emitter"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -75,6 +77,44 @@ func (i *Inspector) canWrite() bool {
 	default:
 		// we have an emitter, so doesn't matter if stdout is disabled
 		return true
+	}
+}
+
+func (i *Inspector) InspectHttpRequest(req *http.Request) {
+	if !i.canWrite() {
+		return
+	}
+
+	if req.URL.Path != "/v1/traces" &&
+		req.URL.Path != "/v1/metrics" &&
+		req.URL.Path != "/v1/logs" {
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		return
+	}
+	// Restore the reader so it can be passed on to the upstream server
+	req.Body = io.NopCloser(bytes.NewReader(body))
+
+	switch req.URL.Path {
+	case "/v1/traces":
+		var traceReq collectortrace.ExportTraceServiceRequest
+		if err := proto.Unmarshal(body, &traceReq); err == nil {
+			i.InspectTraces(&traceReq)
+		}
+	case "/v1/metrics":
+		var metricReq collectormetrics.ExportMetricsServiceRequest
+		if err := proto.Unmarshal(body, &metricReq); err == nil {
+			i.InspectMetrics(&metricReq)
+		}
+	case "/v1/logs":
+		var logReq collectorlogs.ExportLogsServiceRequest
+		if err := proto.Unmarshal(body, &logReq); err == nil {
+			i.InspectLogs(&logReq)
+		}
 	}
 }
 
