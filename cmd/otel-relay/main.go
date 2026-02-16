@@ -16,6 +16,11 @@ import (
 	"github.com/jimschubert/otel-relay/internal/socket"
 )
 
+const (
+	grpc = "gRPC"
+	http = "HTTP"
+)
+
 var CLI struct {
 	Listen       string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
 	Upstream     string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
@@ -47,17 +52,34 @@ func main() {
 }
 
 func run() error {
+	prefix := "   "
 	fmt.Printf("OTel Relay starting...\n")
-	fmt.Printf("   Listening (gRPC): %s\n", CLI.Listen)
-	if CLI.Upstream != "" {
-		fmt.Printf("   Forwarding to: %s\n", CLI.Upstream)
+	if CLI.Listen != "" {
+		fmt.Printf("%sListening (%s): %s\n", prefix, grpc, CLI.Listen)
+		if CLI.Upstream != "" {
+			fmt.Printf("%sForwarding (%s) to: %s\n", prefix, grpc, CLI.Upstream)
+		} else {
+			fmt.Printf("%sForwarding (%s): disabled (inspection only)\n", prefix, grpc)
+		}
 	} else {
-		fmt.Printf("   Forwarding: disabled (inspection only)\n")
+		fmt.Printf("%sListening (%s): disabled\n", prefix, grpc)
 	}
-	if CLI.Emit {
-		fmt.Printf("   Unix socket: %s\n", CLI.Socket)
+
+	if CLI.ListenHttp != "" {
+		fmt.Printf("%sListening (%s): %s\n", prefix, http, CLI.ListenHttp)
+		if CLI.UpstreamHttp != "" {
+			fmt.Printf("%sForwarding (%s) to: %s\n", prefix, http, CLI.UpstreamHttp)
+		} else {
+			fmt.Printf("%sForwarding (%s): disabled (inspection only)\n", prefix, http)
+		}
 	} else {
-		fmt.Printf("   Unix socket: disabled\n")
+		fmt.Printf("%sListening (%s): disabled\n", prefix, http)
+	}
+
+	if CLI.Emit {
+		fmt.Printf("%sUnix socket: %s\n", CLI.Socket, prefix)
+	} else {
+		fmt.Printf("%sUnix socket: disabled\n", prefix)
 	}
 	fmt.Printf("\n")
 
@@ -87,14 +109,14 @@ func run() error {
 	proxies := make([]proxy.Proxy, 0)
 	if CLI.ListenHttp != "" {
 		if CLI.UpstreamHttp == "" {
-			log.Printf("Warning: --listen-http/-L provided without --upstream-http/-U, signals will not be forwarded to an upstream HTTP proxy")
+			log.Printf("Warning: --listen-http/-L provided without --upstream-http/-U, signals will not be forwarded to an upstream %s proxy", http)
 		}
 		proxies = append(proxies, proxy.NewHTTPProxy(CLI.ListenHttp, CLI.UpstreamHttp, inspect))
 	}
 
 	if CLI.Listen != "" {
 		if CLI.Upstream == "" {
-			log.Printf("Warning: --listen/-l provided without --upstream/-u, signals will not be forwarded to an upstream gRPC proxy")
+			log.Printf("Warning: --listen/-l provided without --upstream/-u, signals will not be forwarded to an upstream %s proxy", grpc)
 		}
 		proxies = append(proxies, proxy.NewOTLPProxy(CLI.Listen, CLI.Upstream, inspect))
 	}
@@ -161,6 +183,6 @@ func stopProxies(proxies []proxy.Proxy) {
 		if err := p.Stop(); err != nil {
 			log.Printf("Error stopping %s proxy: %v", p.Protocol(), err)
 		}
-		log.Printf("Proxy (%s) stopped.", p.Protocol())
+		log.Printf("Stopped %s proxy.", p.Protocol())
 	}
 }
