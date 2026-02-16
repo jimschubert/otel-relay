@@ -1,6 +1,6 @@
 # OTel Relay
 
-A language-agnostic transparent proxy for debugging/viewing OpenTelemetry signals.
+A language-agnostic transparent proxy for debugging/viewing OpenTelemetry signals; not intended for production use.
 
 ```
 📊 TRACE
@@ -27,6 +27,8 @@ What are some issues with just using otel-collector?
 2. Any logging/debugging is mixed into other pipelines, which allows human error to misconfigure the collector on reload ([this blog](https://last9.io/blog/hot-reload-for-opentelemetry-collector/) has it right: "Always, and I mean ALWAYS, validate your config changes before reloading.").
 3. It's designed for multiple exporters, usually signal-specific or target an external or system-wide sink which is not ideal for ad hoc debugging. Many useful exporters are in [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/HEAD/exporter), adding complexity to the setup.
 4. Enabling ad hoc evaluation of a single service on a system with mulitiple running services could get tricky.
+
+**Note**: this is not meant to replace the collector. You can setup either in front of the collector or as a separate exporter in the collector.
 
 ## Installation
 
@@ -107,7 +109,9 @@ To send a signal, use the `kill` command with the appropriate signal and the pro
 For example, to toggle verbose mode:
 
 ```bash
-kill -USR1 $(pgrep -f 'otel-relay')
+# Find the process ID of otel-relay, not the daemon, socat, or inspector if running
+ps aux | grep 'otel-relay'
+kill -USR1 <pid>
 ```
 
 ## Emitted signals
@@ -124,9 +128,79 @@ go build -o otel-inspector cmd/otel-inspector/main.go
 ./otel-inspector --socket /tmp/otel-relay.sock
 ```
 
-## Example
+## Examples
+
+### Local Example
 
 There's a working example in the `cmd/example/` directory. See [cmd/example/README.md](cmd/example/README.md).
+
+### OpenTelemetry Full Demo
+
+You can also check this out with the [OpenTelemetry Full Demo](https://opentelemetry.io/docs/demo/docker-deployment/), it just requires a little modification.
+The demo can run with Docker or Kubernetes, but we'll use Docker for this example's instructions.
+
+**1. Set ENV Overrides**
+In `.env.override`, add the following to match the ports used by `otel-relay`:
+
+```
+OTEL_COLLECTOR_HOST=host.docker.internal
+OTEL_COLLECTOR_PORT_GRPC=14317
+OTEL_COLLECTOR_PORT_HTTP=14318
+```
+
+The `host.docker.internal` is a special DNS name in default docker networks. If this doesn't work for you, I'm assuming you know how to modify it.
+
+**2. Modify docker-compose.yml**
+In `docker-compose.yml`, remove these environment mappings from the `otel-collector` service:
+
+```
+- OTEL_COLLECTOR_HOST
+- OTEL_COLLECTOR_PORT_GRPC
+- OTEL_COLLECTOR_PORT_HTTP
+```
+
+And replace the `otel-collector` service's port mappings with the following to map to the host ports:
+
+```
+- "4317:4317"
+- "4318:4318"
+```
+
+**3. Modify otel-collector config**
+
+In `src/otel-collector/otelcol-config.yml`, find and replace:
+* `${env:OTEL_COLLECTOR_HOST}` with `otel-collector`
+* `${env:OTEL_COLLECTOR_PORT_GRPC}` with `4317`
+* `${env:OTEL_COLLECTOR_PORT_HTTP}` with `4318`
+
+**4. Start the demo**
+
+```bash
+make start # NOTE be sure to `make stop` when you're done.
+````
+
+**The result**
+
+All services will emit to your locally running `otel-relay` instead of the compose environment's otel-collector.
+The local `otel-relay` will forward to the collector as well, so you can see the full demo in action.
+
+**Start otel-relay**
+
+```bash
+./otel-relay --listen=":14317" \
+             --upstream=localhost:4317 \
+             --listen-http=":14318" \
+             --upstream-http="http://localhost:4318" \
+             --emit \
+             --log
+```
+This enables both the HTTP and GRPC forwarders, emitting them to the socket and logging to stdout. 
+You can adjust these flags as needed. For example:
+
+* disable logging, chnage `--log` to `--no-log`
+* disable the local socket, change `--emit` to `--no-emit`
+
+Note: if you start without logs or unix socket, you can't toggle them "on" at runtime (at least not yet).
 
 ## Acknowledgements
 
