@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/jimschubert/otel-relay/internal/emitter"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -18,6 +17,7 @@ import (
 	protologs "go.opentelemetry.io/proto/otlp/logs/v1"
 	protometrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	prototrace "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type Inspector struct {
