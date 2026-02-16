@@ -11,7 +11,7 @@ import (
 )
 
 var CLI struct {
-	Socket string `short:"s" default:"/var/run/otel-relay.sock" help:"Path to Unix domain socket to read from"`
+	Socket string `short:"s" default:"/tmp/otel-relay.sock" help:"Path to Unix domain socket to read from"`
 }
 
 func main() {
