@@ -64,6 +64,18 @@ See all attributes:
 otel-relay --verbose
 ```
 
+Emit formatted signals to stdout:
+
+```bash
+otel-relay --log
+```
+
+Emit formatted signals to a Unix domain socket:
+
+```bash
+otel-relay --socket /var/run/otel-relay.sock --emit
+```
+
 Change the listening port:
 
 ```bash
@@ -75,9 +87,12 @@ otel-relay --listen :9999
 The relay is configured via command-line flags:
 
 ```
---listen, -l    Address to listen on (default :14317)
---upstream, -u  Upstream collector address (optional)
---verbose       Show all attributes
+-l, --listen=":14317"                   Address to listen on for OTLP gRPC
+-u, --upstream=<host:port>              Upstream OTLP collector address (optional)
+    --[no-]log                          Whether to emit formatted signals to stdout
+-s, --socket="/var/run/otel-relay.sock" Path to Unix domain socket to emit formatted signals on (optional)
+    --[no-]emit                         Whether to emit formatted signals to unix socket
+    --verbose                           Verbose output (show all attributes)
 ```
 
 ## OS Signals
@@ -93,6 +108,20 @@ For example, to toggle verbose mode:
 
 ```bash
 kill -USR1 $(pgrep -f 'otel-relay')
+```
+
+## Emitted signals
+
+If emitting signals via unix socket, you can view these either with:
+
+```bash
+socat - UNIX-CONNECT:/var/run/otel-relay.sock
+```
+Or with the provided inspector tool:
+
+```bash
+go build -o otel-inspector cmd/otel-inspector/main.go
+./otel-inspector --socket /var/run/otel-relay.sock
 ```
 
 ## Example
