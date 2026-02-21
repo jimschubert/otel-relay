@@ -60,19 +60,7 @@ To forward to an actual collector (note the port _does not_ start with a `1` her
 otel-relay --upstream localhost:4317
 ```
 
-See all attributes:
-
-```bash
-otel-relay --verbose
-```
-
-Emit formatted signals to stdout:
-
-```bash
-otel-relay --log
-```
-
-Emit formatted signals to a Unix domain socket:
+Emit telemetry to a Unix domain socket for inspection:
 
 ```bash
 otel-relay --socket /tmp/otel-relay.sock --emit
@@ -89,43 +77,39 @@ otel-relay --listen :9999
 The relay is configured via command-line flags:
 
 ```
--l, --listen=":14317"                   Address to listen on for OTLP gRPC
--u, --upstream=<host:port>              Upstream OTLP collector address (optional)
-    --[no-]log                          Whether to emit formatted signals to stdout
--s, --socket="/tmp/otel-relay.sock" Path to Unix domain socket to emit formatted signals on (optional)
-    --[no-]emit                         Whether to emit formatted signals to unix socket
-    --verbose                           Verbose output (show all attributes)
+-l, --listen=":14317"                    Address to listen on for OTLP gRPC
+-u, --upstream=<host:port>               Upstream OTLP collector address (optional)
+-L, --listen-http=<port>                 Address to listen on for HTTP/JSON (optional)
+-U, --upstream-http=<scheme:host:port>   Upstream HTTP collector URL (optional)
+-s, --socket="/tmp/otel-relay.sock"      Path to Unix domain socket for gRPC inspector service (optional)
+    --[no-]emit                          Whether to emit signals to unix socket (default: true)
+    --[no-]relay-metrics                 Whether to emit this tooling's own metrics (default: true)
+    --relay-metrics-backend              OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)
 ```
 
 ## OS Signals
 
 The relay supports the following OS signals:
 - `SIGINT` and `SIGTERM`: Gracefully shut down the server.
-- `SIGUSR1`: Toggle verbose mode on/off, where verbose mode shows all attributes instead of a maximum of 5.
-- `SIGUSR2`: Toggle logging to stdout on/off (disables "debugging" of messages, but still forwards if enabled).
 
-To send a signal, use the `kill` command with the appropriate signal and the process ID of the relay.
+## Inspector Tool
 
-For example, to toggle verbose mode:
-
-```bash
-# Find the process ID of otel-relay, not the daemon, socat, or inspector if running
-ps aux | grep 'otel-relay'
-kill -USR1 <pid>
-```
-
-## Emitted signals
-
-If emitting signals via unix socket, you can view these either with:
-
-```bash
-socat - UNIX-CONNECT:/tmp/otel-relay.sock
-```
-Or with the provided inspector tool:
+The `otel-inspector` CLI connects to the relay's gRPC socket to view telemetry:
 
 ```bash
 go build -o otel-inspector cmd/otel-inspector/main.go
 ./otel-inspector --socket /tmp/otel-relay.sock
+```
+
+Interactive commands (when keyboard input is available):
+- `v`: Toggle verbose mode (show all attributes vs limited)
+- `q`: Quit
+
+Options:
+```
+-s, --socket="/tmp/otel-relay.sock"  Path to Unix domain socket
+-f, --format="tree"                   Output format (tree, json)
+-v, --verbose                         Verbose output (show all attributes)
 ```
 
 ## Examples
@@ -191,16 +175,12 @@ The local `otel-relay` will forward to the collector as well, so you can see the
              --upstream=localhost:4317 \
              --listen-http=":14318" \
              --upstream-http="http://localhost:4318" \
-             --emit \
-             --log
+             --emit
 ```
-This enables both the HTTP and GRPC forwarders, emitting them to the socket and logging to stdout. 
+This enables both the HTTP and gRPC forwarders, emitting telemetry to the socket for inspection.
 You can adjust these flags as needed. For example:
 
-* disable logging, chnage `--log` to `--no-log`
-* disable the local socket, change `--emit` to `--no-emit`
-
-Note: if you start without logs or unix socket, you can't toggle them "on" at runtime (at least not yet).
+* Disable the local socket: change `--emit` to `--no-emit`
 
 ## Acknowledgements
 
