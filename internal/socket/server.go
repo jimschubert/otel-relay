@@ -224,7 +224,7 @@ func RunDaemon(path string) {
 		_ = daemon.Close()
 		log.Fatalf("Failed to start socket daemon: %v", err)
 	}
-	log.Printf("Socket daemon running on %s", path)
+	log.Printf("Socket daemon running on %s (PID: %d)", path, os.Getpid())
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)

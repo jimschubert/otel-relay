@@ -4,12 +4,14 @@ import (
 	"io"
 
 	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/observe"
 )
 
 type Options struct {
 	verbose bool
 	writer  io.Writer
 	emitter emitter.Emitter
+	metrics *observe.Metrics
 }
 
 type Option func(*Options)
@@ -29,5 +31,11 @@ func WithWriter(writer io.Writer) Option {
 func WithEmitter(emitter emitter.Emitter) Option {
 	return func(opts *Options) {
 		opts.emitter = emitter
+	}
+}
+
+func WithMetrics(metrics *observe.Metrics) Option {
+	return func(opts *Options) {
+		opts.metrics = metrics
 	}
 }

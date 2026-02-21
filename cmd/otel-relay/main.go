@@ -12,25 +12,30 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/jimschubert/otel-relay/inspector"
 	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/observe"
 	"github.com/jimschubert/otel-relay/internal/proxy"
 	"github.com/jimschubert/otel-relay/internal/socket"
 )
 
 const (
-	grpc = "gRPC"
-	http = "HTTP"
+	grpc        = "gRPC"
+	http        = "HTTP"
+	programName = "otel-relay"
+	version     = "dev"
 )
 
 var CLI struct {
-	Listen       string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
-	Upstream     string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
-	ListenHttp   string `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
-	UpstreamHttp string `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
-	Log          bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
-	Socket       string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
-	Emit         bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
-	Verbose      bool   `help:"Verbose output (show all attributes)"`
-	Daemon       string `hidden:"" help:"Internal: run as daemon (socket path)"`
+	Listen              string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
+	Upstream            string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
+	ListenHttp          string `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
+	UpstreamHttp        string `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
+	Log                 bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
+	Socket              string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
+	Emit                bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
+	Verbose             bool   `help:"Verbose output (show all attributes)"`
+	RelayMetrics        bool   `default:"true" help:"Whether to emit this tooling's own metrics (default: true)"`
+	RelayMetricsBackend string `optional:"" default:"" help:"OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)"`
+	Daemon              string `optional:"" hidden:"" help:"Internal: run as daemon (socket path)"`
 }
 
 func main() {
@@ -81,7 +86,9 @@ func run() error {
 	} else {
 		fmt.Printf("%sUnix socket: disabled\n", prefix)
 	}
-	fmt.Printf("\n")
+	fmt.Printf("\nSend USR1 to toggle verbosity\nSend USR2 to toggle stdout logging\n\n")
+
+	log.Printf("OTel Relay is running. Press Ctrl+C to stop. (PID: %d)\n", os.Getpid())
 
 	var writer io.Writer
 	if CLI.Log {
@@ -100,10 +107,45 @@ func run() error {
 		emit = emitter.NewNoopEmitter()
 	}
 
+	var verboseState int64
+	if CLI.Verbose {
+		verboseState = 1
+	}
+
+	var logOutputState int64
+	if CLI.Log {
+		logOutputState = 1
+	}
+
+	var metrics *observe.Metrics
+	if CLI.RelayMetrics {
+		targetBackend := CLI.Upstream
+		if targetBackend == "" {
+			targetBackend = "localhost:4317"
+		}
+
+		var err error
+		metrics, err = observe.Init(
+			programName,
+			version,
+			func() int64 {
+				return verboseState
+			},
+			func() int64 {
+				return logOutputState
+			},
+			targetBackend,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	inspect := inspector.NewInspector(
 		inspector.WithVerbose(CLI.Verbose),
 		inspector.WithWriter(writer),
 		inspector.WithEmitter(emit),
+		inspector.WithMetrics(metrics),
 	)
 
 	proxies := make([]proxy.Proxy, 0)
@@ -137,8 +179,6 @@ func run() error {
 
 	defer signal.Stop(sigChan)
 
-	log.Println("OTel Relay is running. Press Ctrl+C to stop, or send SIGUSR1 to toggle verbosity.")
-
 	for {
 		select {
 		case sig := <-sigChan:
@@ -158,12 +198,12 @@ func run() error {
 
 			// SIGUSR1: toggle verbosity
 			if sig == syscall.SIGUSR1 {
-				inspect.ToggleVerbosity()
+				verboseState = inspect.ToggleVerbosity()
 			}
 
 			// SIGUSR2: toggle log's writer (stdout vs discard)
 			if sig == syscall.SIGUSR2 {
-				inspect.ToggleWriter()
+				logOutputState = inspect.ToggleWriter()
 			}
 
 		case err := <-waitErr:

@@ -2,14 +2,18 @@ package inspector
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/observe"
+	"go.opentelemetry.io/otel/metric"
 	collectorlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -28,6 +32,7 @@ type Inspector struct {
 	writer     io.Writer
 	prevWriter io.Writer
 	emitter    emitter.Emitter
+	metrics    *observe.Metrics
 }
 
 func NewInspector(opts ...Option) *Inspector {
@@ -45,31 +50,42 @@ func NewInspector(opts ...Option) *Inspector {
 		writer:     options.writer,
 		prevWriter: io.Discard,
 		emitter:    options.emitter,
+		metrics:    options.metrics,
 	}
 }
 
-func (i *Inspector) ToggleVerbosity() {
+func (i *Inspector) ToggleVerbosity() int64 {
 	i.verbose = !i.verbose
 	if i.verbose {
 		log.Println("Verbose mode enabled: showing all attributes and events.")
-	} else {
-		log.Println("Verbose mode disabled: showing limited attributes and events.")
+		return 1
 	}
+
+	log.Println("Verbose mode disabled: showing limited attributes and events.")
+	return 0
 }
 
-func (i *Inspector) ToggleWriter() {
+func (i *Inspector) ToggleWriter() int64 {
 	if i.writer == io.Discard && i.prevWriter == io.Discard {
-		return
-	}
-	prev := i.writer
-	if prev == io.Discard {
-		log.Println("Logging: enabled.")
+		log.Println("Logging: sink not previously configured, setting to stdout.")
+		i.writer = os.Stdout
 	} else {
-		log.Println("Logging: disabled.")
+		prev := i.writer
+		if prev == io.Discard {
+			log.Println("Logging: enabled.")
+		} else {
+			log.Println("Logging: disabled.")
+		}
+
+		i.writer = i.prevWriter
+		i.prevWriter = prev
 	}
 
-	i.writer = i.prevWriter
-	i.prevWriter = prev
+	if i.writer == io.Discard {
+		return 0
+	}
+
+	return 1
 }
 
 func (i *Inspector) canWrite() bool {
@@ -113,27 +129,37 @@ func (i *Inspector) InspectHttpRequest(req *http.Request) {
 		unmarshal = protojson.Unmarshal
 	}
 
+	ctx := context.Background()
 	switch req.URL.Path {
 	case "/v1/traces":
 		var traceReq collectortrace.ExportTraceServiceRequest
 		if err := unmarshal(body, &traceReq); err == nil {
-			i.InspectTraces(&traceReq)
+			incrementMetric(ctx, i.metrics.HttpTracesRecv)
+			i.inspectTraces(&traceReq)
 		}
 	case "/v1/metrics":
 		var metricReq collectormetrics.ExportMetricsServiceRequest
 		if err := unmarshal(body, &metricReq); err == nil {
-			i.InspectMetrics(&metricReq)
+			incrementMetric(ctx, i.metrics.HttpMetricsRecv)
+			i.inspectMetrics(&metricReq)
 		}
 	case "/v1/logs":
 		var logReq collectorlogs.ExportLogsServiceRequest
 		if err := unmarshal(body, &logReq); err == nil {
-			i.InspectLogs(&logReq)
+			incrementMetric(ctx, i.metrics.HttpLogsRecv)
+			i.inspectLogs(&logReq)
 		}
 	}
 }
 
 //goland:noinspection DuplicatedCode
 func (i *Inspector) InspectTraces(req *collectortrace.ExportTraceServiceRequest) {
+	incrementMetric(context.Background(), i.metrics.GrpcTracesRecv)
+	i.inspectTraces(req)
+}
+
+//goland:noinspection DuplicatedCode
+func (i *Inspector) inspectTraces(req *collectortrace.ExportTraceServiceRequest) {
 	if !i.canWrite() {
 		return
 	}
@@ -167,6 +193,12 @@ func (i *Inspector) InspectTraces(req *collectortrace.ExportTraceServiceRequest)
 
 //goland:noinspection DuplicatedCode
 func (i *Inspector) InspectLogs(req *collectorlogs.ExportLogsServiceRequest) {
+	incrementMetric(context.Background(), i.metrics.GrpcLogsRecv)
+	i.inspectLogs(req)
+}
+
+//goland:noinspection DuplicatedCode
+func (i *Inspector) inspectLogs(req *collectorlogs.ExportLogsServiceRequest) {
 	if !i.canWrite() {
 		return
 	}
@@ -200,6 +232,12 @@ func (i *Inspector) InspectLogs(req *collectorlogs.ExportLogsServiceRequest) {
 
 //goland:noinspection DuplicatedCode
 func (i *Inspector) InspectMetrics(req *collectormetrics.ExportMetricsServiceRequest) {
+	incrementMetric(context.Background(), i.metrics.GrpcMetricsRecv)
+	i.inspectMetrics(req)
+}
+
+//goland:noinspection DuplicatedCode
+func (i *Inspector) inspectMetrics(req *collectormetrics.ExportMetricsServiceRequest) {
 	if !i.canWrite() {
 		return
 	}
@@ -232,6 +270,7 @@ func (i *Inspector) InspectMetrics(req *collectormetrics.ExportMetricsServiceReq
 }
 
 func (i *Inspector) write(content string) {
+	ctx := context.Background()
 	if i.writer != io.Discard {
 		_, err := i.writer.Write([]byte(content))
 		if err != nil {
@@ -242,6 +281,9 @@ func (i *Inspector) write(content string) {
 		err := i.emitter.Emit(content)
 		if err != nil {
 			log.Printf("Error emitting data to unix socket: %v", err)
+			incrementMetric(ctx, i.metrics.EventsDropped)
+		} else {
+			incrementMetric(ctx, i.metrics.EventsWritten)
 		}
 	}
 }
@@ -387,5 +429,13 @@ func (i *Inspector) attributeValueToString(value *commonpb.AnyValue) string {
 		return fmt.Sprintf("<bytes: %d>", len(v.BytesValue))
 	default:
 		return "<unknown>"
+	}
+}
+
+func incrementMetric(ctx context.Context, counter interface {
+	Add(ctx context.Context, incr int64, options ...metric.AddOption)
+}) {
+	if counter != nil && counter.Add != nil {
+		counter.Add(ctx, 1)
 	}
 }
