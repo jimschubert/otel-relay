@@ -17,8 +17,11 @@ import (
 	protologs "go.opentelemetry.io/proto/otlp/logs/v1"
 	protometrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	prototrace "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+type unmarshaler = func([]byte, proto.Message) error
 
 type Inspector struct {
 	verbose    bool
@@ -91,6 +94,9 @@ func (i *Inspector) InspectHttpRequest(req *http.Request) {
 		return
 	}
 
+	contentType := req.Header.Get("Content-Type")
+	isProto := strings.Contains(contentType, "application/x-protobuf")
+
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		log.Printf("Error reading request body: %v", err)
@@ -99,20 +105,28 @@ func (i *Inspector) InspectHttpRequest(req *http.Request) {
 	// Restore the reader so it can be passed on to the upstream server
 	req.Body = io.NopCloser(bytes.NewReader(body))
 
+	var unmarshal unmarshaler
+	if isProto {
+		unmarshal = proto.Unmarshal
+	} else {
+		log.Printf("Content-Type '%s' does not indicate protobuf, falling back to JSON unmarshal", contentType)
+		unmarshal = protojson.Unmarshal
+	}
+
 	switch req.URL.Path {
 	case "/v1/traces":
 		var traceReq collectortrace.ExportTraceServiceRequest
-		if err := proto.Unmarshal(body, &traceReq); err == nil {
+		if err := unmarshal(body, &traceReq); err == nil {
 			i.InspectTraces(&traceReq)
 		}
 	case "/v1/metrics":
 		var metricReq collectormetrics.ExportMetricsServiceRequest
-		if err := proto.Unmarshal(body, &metricReq); err == nil {
+		if err := unmarshal(body, &metricReq); err == nil {
 			i.InspectMetrics(&metricReq)
 		}
 	case "/v1/logs":
 		var logReq collectorlogs.ExportLogsServiceRequest
-		if err := proto.Unmarshal(body, &logReq); err == nil {
+		if err := unmarshal(body, &logReq); err == nil {
 			i.InspectLogs(&logReq)
 		}
 	}

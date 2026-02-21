@@ -77,7 +77,7 @@ func run() error {
 	}
 
 	if CLI.Emit {
-		fmt.Printf("%sUnix socket: %s\n", CLI.Socket, prefix)
+		fmt.Printf("%sUnix socket: %s\n", prefix, CLI.Socket)
 	} else {
 		fmt.Printf("%sUnix socket: disabled\n", prefix)
 	}
