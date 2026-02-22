@@ -27,3 +27,6 @@ clean:
 install:
 	go install ./cmd/otel-relay
 	go install ./cmd/otel-inspector
+
+fix:
+	go fix ./...
