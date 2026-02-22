@@ -28,7 +28,9 @@ What are some issues with just using otel-collector?
 3. It's designed for multiple exporters, usually signal-specific or target an external or system-wide sink which is not ideal for ad hoc debugging. Many useful exporters are in [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/HEAD/exporter), adding complexity to the setup.
 4. Enabling ad hoc evaluation of a single service on a system with mulitiple running services could get tricky.
 
-**Note**: this is not meant to replace the collector. You can setup either in front of the collector or as a separate exporter in the collector.
+> [!NOTE]
+> This is not meant to replace the collector.
+> You can setup either in front of the collector or as a separate exporter in the collector.
 
 ## Installation
 
@@ -103,6 +105,7 @@ go build -o otel-inspector cmd/otel-inspector/main.go
 
 Interactive commands (when keyboard input is available):
 - `v`: Toggle verbose mode (show all attributes vs limited)
+- `s`: Check daemon stats (no. of signals processed, bytes processed, uptime)
 - `q`: Quit
 
 Options:
@@ -186,15 +189,11 @@ You can adjust these flags as needed. For example:
 
 I was inspired after mentioning [Expedia's Haystack](https://github.com/ExpediaDotCom/haystack) to someone.
 I used to work at Expedia and I _loved_ Haystack. We use OpenTelemetry where I work now, and its architecture is a lot 
-like Haystack's. However, Haystack's stream-first design  meant you could "attach" viewers without ever needing to 
-recompile core components or stop/start processing. I wanted  something like that for  OpenTelemetry, and this will aim to be that option.
+like Haystack's. However, Haystack's stream-first design meant you could "attach" viewers without ever needing to 
+recompile core components or stop/start processing. I wanted something like that for OpenTelemetry, and this will aim to be that option.
 
-I took additional inspirate from the OTel
-collector's [debugexporter](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/debugexporter).
-The initial intent of this project is to have a streaming view of OTel signals, so you can "peek" at the traffic
-locally.
-
-There are some Marshal functions in debugexporter which I may try to utilize later.
+I took additional inspirate from the OTel collector's [debugexporter](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/debugexporter).
+The initial intent of this project is to have a streaming view of OTel signals, so you can "peek" at the traffic locally.
 
 ## License
 
