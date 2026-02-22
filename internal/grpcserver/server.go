@@ -139,19 +139,6 @@ func (s *Server) Stream(stream inspector.InspectorService_StreamServer) error {
 	}
 }
 
-func (s *Server) broadcastLoop() {
-	for event := range s.broadcast {
-		s.mu.RLock()
-		for _, ch := range s.streams {
-			select {
-			case ch <- event:
-			default:
-			}
-		}
-		s.mu.RUnlock()
-	}
-}
-
 func (s *Server) Emit(ctx context.Context, event *inspector.TelemetryEvent) (*inspector.EmitResponse, error) {
 	// fyi: active writers here are in-process writes, not "long-lived clients"
 	// this differs from active readers, which are long-lived streaming clients.
@@ -177,5 +164,18 @@ func (s *Server) Emit(ctx context.Context, event *inspector.TelemetryEvent) (*in
 		return nil, ctx.Err()
 	default:
 		return &inspector.EmitResponse{}, nil
+	}
+}
+
+func (s *Server) broadcastLoop() {
+	for event := range s.broadcast {
+		s.mu.RLock()
+		for _, ch := range s.streams {
+			select {
+			case ch <- event:
+			default:
+			}
+		}
+		s.mu.RUnlock()
 	}
 }

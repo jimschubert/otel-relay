@@ -25,25 +25,6 @@ type grpcEmitter struct {
 func NewGrpcEmitter(socketPath string) Emitter {
 	return &grpcEmitter{socketPath: socketPath}
 }
-
-func (e *grpcEmitter) connect() error {
-	if e.client != nil {
-		return nil
-	}
-
-	conn, err := grpc.NewClient(
-		"unix://"+e.socketPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to connect to gRPC daemon: %w", err)
-	}
-
-	e.conn = conn
-	e.client = inspector.NewInspectorServiceClient(conn)
-	return nil
-}
-
 func (e *grpcEmitter) EmitTrace(data proto.Message) error {
 	if err := e.connect(); err != nil {
 		return err
@@ -99,4 +80,22 @@ func (e *grpcEmitter) EmitLog(data proto.Message) error {
 
 	_, err = e.client.Emit(context.Background(), event)
 	return err
+}
+
+func (e *grpcEmitter) connect() error {
+	if e.client != nil {
+		return nil
+	}
+
+	conn, err := grpc.NewClient(
+		"unix://"+e.socketPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to gRPC daemon: %w", err)
+	}
+
+	e.conn = conn
+	e.client = inspector.NewInspectorServiceClient(conn)
+	return nil
 }
