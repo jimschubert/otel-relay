@@ -1,4 +1,11 @@
+VERSION=dev
+COMMIT=$(shell git rev-parse --short HEAD)
+
+LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT}"
+
 .PHONY: proto build test clean install help
+
+default: build
 
 help:
 	@echo "Available targets:"
@@ -14,8 +21,8 @@ proto:
 		proto/inspector.proto
 
 build:
-	go build -race -o dist/otel-relay ./cmd/otel-relay
-	go build -race -o dist/otel-inspector ./cmd/otel-inspector
+	CGO_ENABLED=0 go build ${LDFLAGS} -o dist/otel-relay ./cmd/otel-relay
+	CGO_ENABLED=0 go build ${LDFLAGS} -o dist/otel-inspector ./cmd/otel-inspector
 
 test:
 	go test -race ./...

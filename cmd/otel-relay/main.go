@@ -17,29 +17,39 @@ import (
 )
 
 const (
-	grpc        = "gRPC"
-	http        = "HTTP"
+	grpc = "gRPC"
+	http = "HTTP"
+)
+
+var (
 	programName = "otel-relay"
 	version     = "dev"
+	commit      = "unknown SHA"
 )
 
 var CLI struct {
-	Listen              string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
-	Upstream            string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
-	ListenHttp          string `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
-	UpstreamHttp        string `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
-	Socket              string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket for gRPC inspector service (optional)"`
-	Emit                bool   `negatable:"" default:"true"  help:"Whether to emit signals to unix socket"`
-	RelayMetrics        bool   `default:"true" help:"Whether to emit this tooling's own metrics (default: true)"`
-	RelayMetricsBackend string `optional:"" default:"" help:"OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)"`
-	Daemon              string `optional:"" hidden:"" help:"Internal: run as daemon (socket path)"`
+	Listen              string           `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
+	Upstream            string           `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
+	ListenHttp          string           `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
+	UpstreamHttp        string           `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
+	Socket              string           `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket for gRPC inspector service (optional)"`
+	Emit                bool             `negatable:"" default:"true"  help:"Whether to emit signals to unix socket"`
+	RelayMetrics        bool             `default:"true" help:"Whether to emit this tooling's own metrics (default: true)"`
+	RelayMetricsBackend string           `optional:"" default:"" help:"OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)"`
+	Daemon              string           `optional:"" hidden:"" help:"Internal: run as daemon (socket path)"`
+	Version             kong.VersionFlag `short:"v" help:"Print version information"`
 }
 
 func main() {
+	formattedVersion := fmt.Sprintf("%s (%s)", version, commit)
+
 	ctx := kong.Parse(&CLI,
 		kong.Name("otel-relay"),
 		kong.Description("OTel Relay lets you view and forward signals"),
 		kong.UsageOnError(),
+		kong.Vars{
+			"version": formattedVersion,
+		},
 	)
 
 	if err := run(); err != nil {

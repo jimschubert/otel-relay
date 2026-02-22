@@ -22,16 +22,28 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var (
+	programName = "otel-inspector"
+	version     = "dev"
+	commit      = "unknown SHA"
+)
+
 var CLI struct {
-	Socket  string `short:"s" default:"/tmp/otel-relay.sock" help:"Path to Unix domain socket to read from"`
-	Verbose bool   `short:"v" help:"Verbose output (show all attributes)"`
+	Socket  string           `short:"s" default:"/tmp/otel-relay.sock" help:"Path to Unix domain socket to read from"`
+	Verbose bool             `help:"Verbose output (show all attributes)"`
+	Version kong.VersionFlag `short:"v" help:"Print version information"`
 }
 
 func main() {
+	formattedVersion := fmt.Sprintf("%s (%s)", version, commit)
+
 	kong.Parse(&CLI,
-		kong.Name("otel-inspector"),
-		kong.Description("Inspect OTLP telemetry from otel-relay"),
+		kong.Name(programName),
+		kong.Description("Inspect OTLP signals emitted from otel-relay"),
 		kong.UsageOnError(),
+		kong.Vars{
+			"version": formattedVersion,
+		},
 	)
 
 	if err := run(); err != nil {
