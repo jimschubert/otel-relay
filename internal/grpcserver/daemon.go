@@ -78,7 +78,13 @@ func RunDaemon(path string) {
 }
 
 func (s *Server) CanConnect() bool {
-	_, err := net.DialTimeout("unix", s.path, 100*time.Millisecond)
+	conn, err := net.DialTimeout("unix", s.path, 100*time.Millisecond)
+	if conn != nil {
+		defer func(conn net.Conn) {
+			_ = conn.Close()
+		}(conn)
+	}
+
 	if err == nil {
 		return true
 	}

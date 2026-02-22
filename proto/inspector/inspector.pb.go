@@ -315,6 +315,134 @@ func (*EmitResponse) Descriptor() ([]byte, []int) {
 	return file_proto_inspector_proto_rawDescGZIP(), []int{4}
 }
 
+type StatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatsRequest) Reset() {
+	*x = StatsRequest{}
+	mi := &file_proto_inspector_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatsRequest) ProtoMessage() {}
+
+func (x *StatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inspector_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatsRequest.ProtoReflect.Descriptor instead.
+func (*StatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inspector_proto_rawDescGZIP(), []int{5}
+}
+
+type StatsResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TracesObserved  uint64                 `protobuf:"varint,1,opt,name=traces_observed,json=tracesObserved,proto3" json:"traces_observed,omitempty"`
+	MetricsObserved uint64                 `protobuf:"varint,2,opt,name=metrics_observed,json=metricsObserved,proto3" json:"metrics_observed,omitempty"`
+	LogsObserved    uint64                 `protobuf:"varint,3,opt,name=logs_observed,json=logsObserved,proto3" json:"logs_observed,omitempty"`
+	BytesObserved   uint64                 `protobuf:"varint,4,opt,name=bytes_observed,json=bytesObserved,proto3" json:"bytes_observed,omitempty"`
+	UptimeSeconds   int64                  `protobuf:"varint,5,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
+	ActiveReaders   int32                  `protobuf:"varint,6,opt,name=active_readers,json=activeReaders,proto3" json:"active_readers,omitempty"`
+	ActiveWriters   int32                  `protobuf:"varint,7,opt,name=active_writers,json=activeWriters,proto3" json:"active_writers,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *StatsResponse) Reset() {
+	*x = StatsResponse{}
+	mi := &file_proto_inspector_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatsResponse) ProtoMessage() {}
+
+func (x *StatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inspector_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatsResponse.ProtoReflect.Descriptor instead.
+func (*StatsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inspector_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *StatsResponse) GetTracesObserved() uint64 {
+	if x != nil {
+		return x.TracesObserved
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetMetricsObserved() uint64 {
+	if x != nil {
+		return x.MetricsObserved
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetLogsObserved() uint64 {
+	if x != nil {
+		return x.LogsObserved
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetBytesObserved() uint64 {
+	if x != nil {
+		return x.BytesObserved
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetUptimeSeconds() int64 {
+	if x != nil {
+		return x.UptimeSeconds
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetActiveReaders() int32 {
+	if x != nil {
+		return x.ActiveReaders
+	}
+	return 0
+}
+
+func (x *StatsResponse) GetActiveWriters() int32 {
+	if x != nil {
+		return x.ActiveWriters
+	}
+	return 0
+}
+
 var File_proto_inspector_proto protoreflect.FileDescriptor
 
 const file_proto_inspector_proto_rawDesc = "" +
@@ -329,15 +457,25 @@ const file_proto_inspector_proto_rawDesc = "" +
 	"\x0eTelemetryEvent\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12,\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x18.inspector.TelemetryTypeR\x04type\"\x0e\n" +
-	"\fEmitResponse*|\n" +
+	"\fEmitResponse\"\x0e\n" +
+	"\fStatsRequest\"\xa4\x02\n" +
+	"\rStatsResponse\x12'\n" +
+	"\x0ftraces_observed\x18\x01 \x01(\x04R\x0etracesObserved\x12)\n" +
+	"\x10metrics_observed\x18\x02 \x01(\x04R\x0fmetricsObserved\x12#\n" +
+	"\rlogs_observed\x18\x03 \x01(\x04R\flogsObserved\x12%\n" +
+	"\x0ebytes_observed\x18\x04 \x01(\x04R\rbytesObserved\x12%\n" +
+	"\x0euptime_seconds\x18\x05 \x01(\x03R\ruptimeSeconds\x12%\n" +
+	"\x0eactive_readers\x18\x06 \x01(\x05R\ractiveReaders\x12%\n" +
+	"\x0eactive_writers\x18\a \x01(\x05R\ractiveWriters*|\n" +
 	"\rTelemetryType\x12\x1e\n" +
 	"\x1aTELEMETRY_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14TELEMETRY_TYPE_TRACE\x10\x01\x12\x19\n" +
 	"\x15TELEMETRY_TYPE_METRIC\x10\x02\x12\x16\n" +
-	"\x12TELEMETRY_TYPE_LOG\x10\x032\x8b\x01\n" +
+	"\x12TELEMETRY_TYPE_LOG\x10\x032\xca\x01\n" +
 	"\x10InspectorService\x12;\n" +
 	"\x06Stream\x12\x12.inspector.Command\x1a\x19.inspector.TelemetryEvent(\x010\x01\x12:\n" +
-	"\x04Emit\x12\x19.inspector.TelemetryEvent\x1a\x17.inspector.EmitResponseB3Z1github.com/jimschubert/otel-relay/proto/inspectorb\x06proto3"
+	"\x04Emit\x12\x19.inspector.TelemetryEvent\x1a\x17.inspector.EmitResponse\x12=\n" +
+	"\bGetStats\x12\x17.inspector.StatsRequest\x1a\x18.inspector.StatsResponseB3Z1github.com/jimschubert/otel-relay/proto/inspectorb\x06proto3"
 
 var (
 	file_proto_inspector_proto_rawDescOnce sync.Once
@@ -352,7 +490,7 @@ func file_proto_inspector_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_inspector_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_inspector_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_inspector_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_inspector_proto_goTypes = []any{
 	(TelemetryType)(0),     // 0: inspector.TelemetryType
 	(*Command)(nil),        // 1: inspector.Command
@@ -360,6 +498,8 @@ var file_proto_inspector_proto_goTypes = []any{
 	(*ToggleOutput)(nil),   // 3: inspector.ToggleOutput
 	(*TelemetryEvent)(nil), // 4: inspector.TelemetryEvent
 	(*EmitResponse)(nil),   // 5: inspector.EmitResponse
+	(*StatsRequest)(nil),   // 6: inspector.StatsRequest
+	(*StatsResponse)(nil),  // 7: inspector.StatsResponse
 }
 var file_proto_inspector_proto_depIdxs = []int32{
 	2, // 0: inspector.Command.toggle_verbose:type_name -> inspector.ToggleVerbose
@@ -367,10 +507,12 @@ var file_proto_inspector_proto_depIdxs = []int32{
 	0, // 2: inspector.TelemetryEvent.type:type_name -> inspector.TelemetryType
 	1, // 3: inspector.InspectorService.Stream:input_type -> inspector.Command
 	4, // 4: inspector.InspectorService.Emit:input_type -> inspector.TelemetryEvent
-	4, // 5: inspector.InspectorService.Stream:output_type -> inspector.TelemetryEvent
-	5, // 6: inspector.InspectorService.Emit:output_type -> inspector.EmitResponse
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
+	6, // 5: inspector.InspectorService.GetStats:input_type -> inspector.StatsRequest
+	4, // 6: inspector.InspectorService.Stream:output_type -> inspector.TelemetryEvent
+	5, // 7: inspector.InspectorService.Emit:output_type -> inspector.EmitResponse
+	7, // 8: inspector.InspectorService.GetStats:output_type -> inspector.StatsResponse
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -391,7 +533,7 @@ func file_proto_inspector_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_inspector_proto_rawDesc), len(file_proto_inspector_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

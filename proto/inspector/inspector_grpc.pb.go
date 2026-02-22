@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InspectorService_Stream_FullMethodName = "/inspector.InspectorService/Stream"
-	InspectorService_Emit_FullMethodName   = "/inspector.InspectorService/Emit"
+	InspectorService_Stream_FullMethodName   = "/inspector.InspectorService/Stream"
+	InspectorService_Emit_FullMethodName     = "/inspector.InspectorService/Emit"
+	InspectorService_GetStats_FullMethodName = "/inspector.InspectorService/GetStats"
 )
 
 // InspectorServiceClient is the client API for InspectorService service.
@@ -29,6 +30,7 @@ const (
 type InspectorServiceClient interface {
 	Stream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Command, TelemetryEvent], error)
 	Emit(ctx context.Context, in *TelemetryEvent, opts ...grpc.CallOption) (*EmitResponse, error)
+	GetStats(ctx context.Context, in *StatsRequest, opts ...grpc.CallOption) (*StatsResponse, error)
 }
 
 type inspectorServiceClient struct {
@@ -62,12 +64,23 @@ func (c *inspectorServiceClient) Emit(ctx context.Context, in *TelemetryEvent, o
 	return out, nil
 }
 
+func (c *inspectorServiceClient) GetStats(ctx context.Context, in *StatsRequest, opts ...grpc.CallOption) (*StatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatsResponse)
+	err := c.cc.Invoke(ctx, InspectorService_GetStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InspectorServiceServer is the server API for InspectorService service.
 // All implementations must embed UnimplementedInspectorServiceServer
 // for forward compatibility.
 type InspectorServiceServer interface {
 	Stream(grpc.BidiStreamingServer[Command, TelemetryEvent]) error
 	Emit(context.Context, *TelemetryEvent) (*EmitResponse, error)
+	GetStats(context.Context, *StatsRequest) (*StatsResponse, error)
 	mustEmbedUnimplementedInspectorServiceServer()
 }
 
@@ -83,6 +96,9 @@ func (UnimplementedInspectorServiceServer) Stream(grpc.BidiStreamingServer[Comma
 }
 func (UnimplementedInspectorServiceServer) Emit(context.Context, *TelemetryEvent) (*EmitResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Emit not implemented")
+}
+func (UnimplementedInspectorServiceServer) GetStats(context.Context, *StatsRequest) (*StatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetStats not implemented")
 }
 func (UnimplementedInspectorServiceServer) mustEmbedUnimplementedInspectorServiceServer() {}
 func (UnimplementedInspectorServiceServer) testEmbeddedByValue()                          {}
@@ -130,6 +146,24 @@ func _InspectorService_Emit_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InspectorService_GetStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InspectorServiceServer).GetStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InspectorService_GetStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InspectorServiceServer).GetStats(ctx, req.(*StatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InspectorService_ServiceDesc is the grpc.ServiceDesc for InspectorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,6 +174,10 @@ var InspectorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Emit",
 			Handler:    _InspectorService_Emit_Handler,
+		},
+		{
+			MethodName: "GetStats",
+			Handler:    _InspectorService_GetStats_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

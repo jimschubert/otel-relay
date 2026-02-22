@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/eiannone/keyboard"
@@ -64,7 +65,7 @@ func run() error {
 	} else {
 		defer keyboard.Close()
 		log.Println("Interactive mode enabled. Press 'v' to toggle verbose, 'q' to quit")
-		go handleKeyboard(form)
+		go handleKeyboard(client, form)
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -92,7 +93,7 @@ func run() error {
 	}
 }
 
-func handleKeyboard(form *formatter.TreeFormatter) {
+func handleKeyboard(client inspector.InspectorServiceClient, form *formatter.TreeFormatter) {
 	verbose := CLI.Verbose
 	for {
 		char, key, err := keyboard.GetKey()
@@ -113,7 +114,32 @@ func handleKeyboard(form *formatter.TreeFormatter) {
 				log.Println("Verbose mode disabled")
 			}
 		}
+
+		if char == 's' {
+			ctx, canceler := context.WithTimeout(context.Background(), 1*time.Second)
+			stats, err := client.GetStats(ctx, &inspector.StatsRequest{})
+			// can't defer because of for loop
+			canceler()
+			if err != nil {
+				fmt.Printf("Error fetching stats: %v\n", err)
+				continue
+			}
+
+			printStats(stats)
+		}
 	}
+}
+
+func printStats(stats *inspector.StatsResponse) {
+	fmt.Printf("Stats: Uptime=%s Readers=%d, Writers=%d, Total Traces=%d, Metrics=%d, Logs=%d, Total Bytes=%d\n",
+		time.Duration(stats.GetUptimeSeconds())*time.Second,
+		stats.GetActiveReaders(),
+		stats.GetActiveWriters(),
+		stats.GetTracesObserved(),
+		stats.GetMetricsObserved(),
+		stats.GetLogsObserved(),
+		stats.GetBytesObserved(),
+	)
 }
 
 func formatEvent(event *inspector.TelemetryEvent, form formatter.Formatter) string {

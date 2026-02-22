@@ -7,6 +7,7 @@ option go_package = "github.com/jimschubert/otel-relay/proto/inspector";
 service InspectorService {
   rpc Stream(stream Command) returns (stream TelemetryEvent);
   rpc Emit(TelemetryEvent) returns (EmitResponse);
+  rpc GetStats(StatsRequest) returns (StatsResponse);
 }
 
 message Command {
@@ -31,4 +32,17 @@ enum TelemetryType {
   TELEMETRY_TYPE_TRACE = 1;
   TELEMETRY_TYPE_METRIC = 2;
   TELEMETRY_TYPE_LOG = 3;
+}
+
+message StatsRequest {}
+
+message StatsResponse {
+  uint64 traces_observed = 1;
+  uint64 metrics_observed = 2;
+  uint64 logs_observed = 3;
+  uint64 bytes_observed = 4;
+
+  int64 uptime_seconds = 5;
+  int32 active_readers = 6;
+  int32 active_writers = 7;
 }

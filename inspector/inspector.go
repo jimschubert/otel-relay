@@ -124,7 +124,7 @@ func (i *Inspector) InspectMetrics(req *collectormetrics.ExportMetricsServiceReq
 func incrementMetric(ctx context.Context, counter interface {
 	Add(ctx context.Context, incr int64, options ...metric.AddOption)
 }) {
-	if counter != nil && counter.Add != nil {
+	if counter != nil {
 		counter.Add(ctx, 1)
 	}
 }
