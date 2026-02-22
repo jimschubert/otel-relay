@@ -14,14 +14,14 @@ proto:
 		proto/inspector.proto
 
 build:
-	go build -o dist/otel-relay ./cmd/otel-relay
-	go build -o dist/otel-inspector ./cmd/otel-inspector
+	go build -race -o dist/otel-relay ./cmd/otel-relay
+	go build -race -o dist/otel-inspector ./cmd/otel-inspector
 
 test:
-	go test ./...
+	go test -race ./...
 
 clean:
-	rm -rf bin/
+	rm -rf dist/
 	go clean
 
 install:
