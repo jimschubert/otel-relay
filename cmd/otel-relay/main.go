@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -12,43 +11,46 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/jimschubert/otel-relay/inspector"
 	"github.com/jimschubert/otel-relay/internal/emitter"
+	"github.com/jimschubert/otel-relay/internal/grpcserver"
 	"github.com/jimschubert/otel-relay/internal/observe"
 	"github.com/jimschubert/otel-relay/internal/proxy"
-	"github.com/jimschubert/otel-relay/internal/socket"
 )
 
 const (
-	grpc        = "gRPC"
-	http        = "HTTP"
+	grpc = "gRPC"
+	http = "HTTP"
+)
+
+var (
 	programName = "otel-relay"
 	version     = "dev"
+	commit      = "unknown SHA"
 )
 
 var CLI struct {
-	Listen              string `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
-	Upstream            string `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
-	ListenHttp          string `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
-	UpstreamHttp        string `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
-	Log                 bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to stdout"`
-	Socket              string `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket to emit formatted signals on (optional)"`
-	Emit                bool   `negatable:"" default:"true"  help:"Whether to emit formatted signals to unix socket"`
-	Verbose             bool   `help:"Verbose output (show all attributes)"`
-	RelayMetrics        bool   `default:"true" help:"Whether to emit this tooling's own metrics (default: true)"`
-	RelayMetricsBackend string `optional:"" default:"" help:"OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)"`
-	Daemon              string `optional:"" hidden:"" help:"Internal: run as daemon (socket path)"`
+	Listen              string           `short:"l" default:":14317" help:"Address to listen on for OTLP gRPC"`
+	Upstream            string           `short:"u" optional:"" placeholder:"<host:port>" help:"Upstream OTLP collector address (optional, e.g. 'localhost:4317')"`
+	ListenHttp          string           `short:"L" optional:"" placeholder:"<port>" help:"Address to listen on for HTTP/JSON, e.g. ':14318' (optional)"`
+	UpstreamHttp        string           `short:"U" optional:"" placeholder:"<scheme:host:port>" help:"Upstream HTTP collector URL (optional, e.g. 'http://localhost:4318')"`
+	Socket              string           `short:"s" default:"/tmp/otel-relay.sock" optional:"" help:"Path to Unix domain socket for gRPC inspector service (optional)"`
+	Emit                bool             `negatable:"" default:"true"  help:"Whether to emit signals to unix socket"`
+	RelayMetrics        bool             `default:"true" help:"Whether to emit this tooling's own metrics (default: true)"`
+	RelayMetricsBackend string           `optional:"" default:"" help:"OTLP endpoint to push metrics to (default: same as --upstream/-u if set, otherwise localhost:4317)"`
+	Daemon              string           `optional:"" hidden:"" help:"Internal: run as daemon (socket path)"`
+	Version             kong.VersionFlag `short:"v" help:"Print version information"`
 }
 
 func main() {
+	formattedVersion := fmt.Sprintf("%s (%s)", version, commit)
+
 	ctx := kong.Parse(&CLI,
 		kong.Name("otel-relay"),
 		kong.Description("OTel Relay lets you view and forward signals"),
 		kong.UsageOnError(),
+		kong.Vars{
+			"version": formattedVersion,
+		},
 	)
-
-	if CLI.Daemon != "" {
-		socket.RunDaemon(CLI.Daemon)
-		return
-	}
 
 	if err := run(); err != nil {
 		ctx.Errorf("Error: %v\n", err)
@@ -57,6 +59,11 @@ func main() {
 }
 
 func run() error {
+	if CLI.Daemon != "" {
+		grpcserver.RunDaemon(CLI.Daemon)
+		return nil
+	}
+
 	prefix := "   "
 	fmt.Printf("OTel Relay starting...\n")
 	if CLI.Listen != "" {
@@ -82,39 +89,21 @@ func run() error {
 	}
 
 	if CLI.Emit {
-		fmt.Printf("%sUnix socket: %s\n", prefix, CLI.Socket)
+		fmt.Printf("%sInspector socket (gRPC): %s\n", prefix, CLI.Socket)
 	} else {
-		fmt.Printf("%sUnix socket: disabled\n", prefix)
+		fmt.Printf("%sInspector socket: disabled\n", prefix)
 	}
-	fmt.Printf("\nSend USR1 to toggle verbosity\nSend USR2 to toggle stdout logging\n\n")
 
 	log.Printf("OTel Relay is running. Press Ctrl+C to stop. (PID: %d)\n", os.Getpid())
 
-	var writer io.Writer
-	if CLI.Log {
-		writer = os.Stdout
-	} else {
-		writer = io.Discard
-	}
-
 	var emit emitter.Emitter
 	if CLI.Emit {
-		if err := socket.EnsureServerRunning(CLI.Socket); err != nil {
-			return fmt.Errorf("failed to ensure socket server is running: %w", err)
+		if err := grpcserver.EnsureServerRunning(CLI.Socket); err != nil {
+			return fmt.Errorf("failed to ensure gRPC server is running: %w", err)
 		}
-		emit = emitter.NewSocketEmitter(CLI.Socket)
+		emit = emitter.NewGrpcEmitter(CLI.Socket)
 	} else {
 		emit = emitter.NewNoopEmitter()
-	}
-
-	var verboseState int64
-	if CLI.Verbose {
-		verboseState = 1
-	}
-
-	var logOutputState int64
-	if CLI.Log {
-		logOutputState = 1
 	}
 
 	var metrics *observe.Metrics
@@ -128,12 +117,6 @@ func run() error {
 		metrics, err = observe.Init(
 			programName,
 			version,
-			func() int64 {
-				return verboseState
-			},
-			func() int64 {
-				return logOutputState
-			},
 			targetBackend,
 		)
 		if err != nil {
@@ -142,8 +125,6 @@ func run() error {
 	}
 
 	inspect := inspector.NewInspector(
-		inspector.WithVerbose(CLI.Verbose),
-		inspector.WithWriter(writer),
 		inspector.WithEmitter(emit),
 		inspector.WithMetrics(metrics),
 	)
@@ -175,36 +156,23 @@ func run() error {
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	defer signal.Stop(sigChan)
 
 	for {
 		select {
 		case sig := <-sigChan:
-			// SIGINT | SIGTERM: graceful shutdown
-			if sig == os.Interrupt || sig == syscall.SIGTERM {
-				fmt.Println() // so e.g. ^C is on its own line
-				log.Printf("Shutting down (%s)...\n", sig)
+			fmt.Println()
+			log.Printf("Shutting down (%s)...\n", sig)
 
-				stopProxies(proxies)
+			stopProxies(proxies)
 
-				err := <-waitErr
-				if err != nil {
-					return fmt.Errorf("server stopped with error: %w", err)
-				}
-				return nil
+			err := <-waitErr
+			if err != nil {
+				return fmt.Errorf("server stopped with error: %w", err)
 			}
-
-			// SIGUSR1: toggle verbosity
-			if sig == syscall.SIGUSR1 {
-				verboseState = inspect.ToggleVerbosity()
-			}
-
-			// SIGUSR2: toggle log's writer (stdout vs discard)
-			if sig == syscall.SIGUSR2 {
-				logOutputState = inspect.ToggleWriter()
-			}
+			return nil
 
 		case err := <-waitErr:
 			if err != nil {
