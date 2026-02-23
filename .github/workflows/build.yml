@@ -39,4 +39,6 @@ concurrency:
 jobs:
   build:
     uses: jimschubert/.workflows/.github/workflows/go-build-goreleaser.yml@main
+    with:
+      golangci-lint-version: 'v2.9.0'
     secrets: inherit
