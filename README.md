@@ -1,5 +1,11 @@
 # OTel Relay
 
+[![Build Status](https://github.com/jimschubert/otel-relay/actions/workflows/build.yml/badge.svg)](https://github.com/jimschubert/otel-relay/actions/workflows/build.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jimschubert/otel-relay)](https://github.com/jimschubert/otel-relay/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/jimschubert/otel-relay?a=b&color=blue)](https://github.com/jimschubert/otel-relay/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jimschubert/otel-relay)](https://goreportcard.com/report/github.com/jimschubert/otel-relay)
+[![GitHub Release](https://img.shields.io/github/v/release/jimschubert/otel-relay)](https://github.com/jimschubert/otel-relay/releases/latest)
+
 A language-agnostic transparent proxy for debugging/viewing OpenTelemetry signals; not intended for production use.
 
 ```
