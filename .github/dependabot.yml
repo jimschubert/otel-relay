@@ -20,3 +20,20 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      grpc-stack:
+        patterns:
+          - "google.golang.org/grpc*"
+          - "google.golang.org/protobuf*"
+      otel:
+        patterns:
+          - "go.opentelemetry.io/*"
+      minor-patch-others:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
